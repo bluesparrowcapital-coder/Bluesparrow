@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { onboardingService } from '../../services/onboardingService'
+import { useDraft } from '../../hooks/useDraft'
 
 const RELATIONSHIPS = [
   'SPOUSE', 'SON', 'DAUGHTER', 'FATHER', 'MOTHER',
@@ -30,18 +31,26 @@ function isMinor(dob: string): boolean {
 
 export default function NomineePage() {
   const navigate  = useNavigate()
+  const draft = useDraft<NomineeForm[]>('onboarding_nominees')
   const [nominees, setNominees] = useState<NomineeForm[]>([emptyNominee()])
   const [loading, setLoading]   = useState(false)
   const [fetching, setFetching] = useState(true)
   const [errors, setErrors]     = useState<Record<string, string>>({})
 
-  // Load existing nominees
+  // Load: try localStorage draft (nominees have no GET endpoint yet)
   useEffect(() => {
-    onboardingService.getAddresses() // just to confirm address done; nominees endpoint needed
-      .catch(() => {})
-    // Actually fetch nominees — need to add this to service; using onboarding status as workaround
+    const saved = draft.load()
+    if (saved && saved.length > 0) {
+      setNominees(saved)
+      toast('Draft restored', { icon: '📝' })
+    }
     setFetching(false)
-  }, [])
+  }, []) // eslint-disable-line
+
+  // Auto-save on every change
+  useEffect(() => {
+    if (!fetching) draft.save(nominees)
+  }, [nominees, fetching]) // eslint-disable-line
 
   const totalPct = nominees.reduce((s, n) => s + Number(n.percentage || 0), 0)
 
@@ -99,6 +108,7 @@ export default function NomineePage() {
         guardianRel:  n.guardianRel.trim() || undefined,
       }))
       await onboardingService.saveNominees(payload)
+      draft.clear()
       toast.success('Nominees saved successfully!')
       navigate('/onboarding/bank')
     } catch (err: any) {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { onboardingService } from '../../services/onboardingService'
+import { useDraft } from '../../hooks/useDraft'
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -28,8 +29,11 @@ const emptyForm: AddressForm = {
   district: '', state: '', pincode: '', country: 'India',
 }
 
+interface AddressDraft { permanent: AddressForm; correspondence: AddressForm; sameAsPermanent: boolean }
+
 export default function AddressPage() {
   const navigate = useNavigate()
+  const draft = useDraft<AddressDraft>('onboarding_address')
 
   const [permanent, setPermanent]       = useState<AddressForm>({ ...emptyForm })
   const [correspondence, setCorrespondence] = useState<AddressForm>({ ...emptyForm })
@@ -38,10 +42,11 @@ export default function AddressPage() {
   const [fetching, setFetching]         = useState(true)
   const [errors, setErrors]             = useState<Record<string, string>>({})
 
-  // Load existing addresses
+  // Load: server data first, then localStorage draft
   useEffect(() => {
     onboardingService.getAddresses()
       .then((list: any[]) => {
+        let found = false
         list.forEach((addr: any) => {
           const form: AddressForm = {
             addressLine1: addr.addressLine1 ?? '',
@@ -52,13 +57,28 @@ export default function AddressPage() {
             pincode:      addr.pincode ?? '',
             country:      addr.country ?? 'India',
           }
-          if (addr.type === 'PERMANENT')      setPermanent(form)
+          if (addr.type === 'PERMANENT')      { setPermanent(form); found = true }
           if (addr.type === 'CORRESPONDENCE') setCorrespondence(form)
         })
+        if (!found) throw new Error('no data')
       })
-      .catch(() => {})
+      .catch(() => {
+        const saved = draft.load()
+        if (saved) {
+          setPermanent(saved.permanent)
+          setCorrespondence(saved.correspondence)
+          setSameAsPermanent(saved.sameAsPermanent)
+          toast('Draft restored', { icon: '📝' })
+        }
+      })
       .finally(() => setFetching(false))
-  }, [])
+  }, []) // eslint-disable-line
+
+  // Auto-save draft on every change
+  useEffect(() => {
+    if (!fetching)
+      draft.save({ permanent, correspondence, sameAsPermanent })
+  }, [permanent, correspondence, sameAsPermanent, fetching]) // eslint-disable-line
 
   function validate() {
     const errs: Record<string, string> = {}
@@ -85,6 +105,7 @@ export default function AddressPage() {
         type: 'CORRESPONDENCE',
         ...(sameAsPermanent ? permanent : correspondence),
       })
+      draft.clear()
       toast.success('Addresses saved successfully!')
       navigate('/onboarding/nominees')
     } catch (err: any) {

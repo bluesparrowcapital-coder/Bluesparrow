@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 import { onboardingService } from '../../services/onboardingService'
+import { useDraft } from '../../hooks/useDraft'
 
 const schema = z.object({
   panNumber:          z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN (e.g. ABCDE1234F)'),
@@ -25,28 +26,48 @@ type FormData = z.infer<typeof schema>
 export default function CreateProfilePage() {
   const navigate = useNavigate()
   const [prefilling, setPrefilling] = useState(false)
+  const draft = useDraft<FormData>('onboarding_profile')
+
   const {
-    register, handleSubmit, reset, setValue, getValues,
+    register, handleSubmit, reset, setValue, getValues, watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { gender: 'M', occupation: 'SALARIED', taxStatus: 'INDIVIDUAL', isPep: false },
   })
 
+  // ── Load: server profile → localStorage draft → prefill ──
   useEffect(() => {
-    // First try to load existing saved profile
     onboardingService.getProfile()
-      .then((p) => { if (p) reset(p) })
-      .catch(() => {/* no profile yet */})
-
-    // Auto-fill PAN + name from registration data (runs in background)
-    onboardingService.getPrefill()
-      .then((u) => {
-        if (!getValues('panNumber') && u.panNumber) setValue('panNumber', u.panNumber)
-        if (!getValues('fullNameAsPan') && u.fullName) setValue('fullNameAsPan', u.fullName.toUpperCase())
+      .then((p) => {
+        if (p) { reset(p); return }
+        throw new Error('no profile')
       })
-      .catch(() => {/* silent */})
-  }, [reset, setValue, getValues])
+      .catch(() => {
+        // No server profile — try localStorage draft first
+        const saved = draft.load()
+        if (saved) {
+          reset(saved)
+          toast('Draft restored', { icon: '📝' })
+        }
+        // Then silently prefill PAN + name from registration
+        onboardingService.getPrefill()
+          .then((u) => {
+            if (!getValues('panNumber') && u.panNumber)
+              setValue('panNumber', u.panNumber)
+            if (!getValues('fullNameAsPan') && u.fullName)
+              setValue('fullNameAsPan', u.fullName.toUpperCase())
+          })
+          .catch(() => {})
+      })
+  }, []) // eslint-disable-line
+
+  // ── Auto-save draft on every field change ──
+  const watchedValues = watch()
+  useEffect(() => {
+    const any = Object.values(watchedValues).some((v) => v !== '' && v !== false && v !== undefined)
+    if (any) draft.save(watchedValues)
+  }, [watchedValues]) // eslint-disable-line
 
   async function handlePanPrefill() {
     setPrefilling(true)
@@ -65,6 +86,7 @@ export default function CreateProfilePage() {
   async function onSubmit(data: FormData) {
     try {
       await onboardingService.saveProfile(data as unknown as Record<string, unknown>)
+      draft.clear()   // ← remove draft after successful save
       toast.success('Profile saved!')
       navigate('/onboarding/address')
     } catch (err: unknown) {

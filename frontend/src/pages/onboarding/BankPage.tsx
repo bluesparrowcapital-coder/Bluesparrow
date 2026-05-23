@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { bankService } from '../../services/onboardingService'
+import { useDraft } from '../../hooks/useDraft'
 
 interface BankAccount {
   id:            string
@@ -30,9 +31,10 @@ function maskAccount(num: string) {
 
 export default function BankPage() {
   const navigate  = useNavigate()
+  const draft = useDraft<FormData>('onboarding_bank')
   const [accounts, setAccounts]   = useState<BankAccount[]>([])
   const [showForm, setShowForm]   = useState(false)
-  const [form, setForm]           = useState<FormData>({ ...emptyForm })
+  const [form, setForm]           = useState<FormData>(() => draft.load() ?? { ...emptyForm })
   const [loading, setLoading]     = useState(false)
   const [fetching, setFetching]   = useState(true)
   const [errors, setErrors]       = useState<Partial<FormData>>({})
@@ -54,7 +56,11 @@ export default function BankPage() {
   }, [fetching, accounts.length])
 
   function setField(field: keyof FormData, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }))
+    setForm((prev) => {
+      const next = { ...prev, [field]: value }
+      draft.save(next)   // auto-save on every keystroke
+      return next
+    })
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }))
   }
 
@@ -82,6 +88,7 @@ export default function BankPage() {
       })
       setAccounts((prev) => [...prev, result.data])
       setForm({ ...emptyForm })
+      draft.clear()   // ← clear draft after successful add
       setShowForm(false)
       toast.success('Bank account added!')
     } catch (err: any) {
