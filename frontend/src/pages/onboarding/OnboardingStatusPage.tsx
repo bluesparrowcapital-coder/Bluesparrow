@@ -199,3 +199,18 @@ export default function OnboardingStatusPage() {
     </div>
   )
 }
+          })}
+        </div>
+
+        {allDone && (
+          <button
+            className="btn-primary mt-4"
+            onClick={() => navigate('/dashboard')}
+          >
+            Go to Dashboard →
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
