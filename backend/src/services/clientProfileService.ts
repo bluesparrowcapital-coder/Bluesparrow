@@ -121,6 +121,41 @@ export async function submitNseMfOnboarding(userId: string) {
     return { status: 'REGISTERED', clientCode: profile.nseClientCode, message: 'Already registered on NSE MF.' };
   }
 
+  // ── KYC check: verify investor KYC via NSE before UCC registration ──
+  const kycCheck = await nseMfClient.checkKycStatus(profile.panNumber);
+  if (!kycCheck.isVerified && kycCheck.kycStatusRemark !== 'KYC_CHECK_SERVICE_DOWN') {
+    // KYC not done — initiate eKYC fresh registration and return link
+    const ekycResult = await nseMfClient.freshRegisterKyc(
+      profile.panNumber,
+      profile.mobile,
+      profile.email,
+    );
+    await prisma.clientProfile.update({
+      where: { userId },
+      data: {
+        nseKycStatus:      kycCheck.kycStatus ?? 'F',
+        nseKycRemark:      kycCheck.kycStatusRemark,
+        nseEkycLink:       ekycResult.link,
+        nseEkycLinkSentAt: new Date(),
+        nseOnboardingStatus: 'PENDING',   // keep PENDING until KYC done
+      },
+    });
+    logger.info(`NSE KYC not verified for user ${userId} (${kycCheck.kycStatusRemark}). eKYC link sent.`);
+    return {
+      status:   'KYC_PENDING',
+      ekycLink: ekycResult.link,
+      message:  `KYC verification required. Please complete eKYC using the link provided. (Reason: ${kycCheck.kycStatusRemark ?? 'Not registered'})`,
+    };
+  }
+
+  // Save KYC status to profile (if verified or service down — proceed anyway)
+  if (kycCheck.kycStatus) {
+    await prisma.clientProfile.update({
+      where: { userId },
+      data:  { nseKycStatus: kycCheck.kycStatus, nseKycRemark: kycCheck.kycStatusRemark },
+    });
+  }
+
   // Mark as SUBMITTED while the API call runs
   await prisma.clientProfile.update({
     where: { userId },
@@ -248,7 +283,19 @@ export async function getOnboardingStatus(userId: string) {
   // Next pending step
   const nextStep = Object.entries(steps).find(([, v]) => !v.done)?.[0] ?? 'COMPLETE';
 
-  return { user, profile, steps, nextStep };
+  const nseStatus = profile
+    ? {
+        status:        profile.nseOnboardingStatus,
+        clientCode:    profile.nseClientCode,
+        onboardedAt:   profile.nseOnboardedAt,
+        kycStatus:     profile.nseKycStatus,
+        kycRemark:     profile.nseKycRemark,
+        ekycLink:      profile.nseEkycLink,
+        ekycLinkSentAt: profile.nseEkycLinkSentAt,
+      }
+    : null;
+
+  return { user, profile, steps, nextStep, nseStatus };
 }
 
 // ─── Internal helper ──────────────────────────────────────
