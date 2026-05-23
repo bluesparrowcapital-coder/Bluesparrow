@@ -185,6 +185,11 @@ export default function AddressPage() {
 
 // ─── Sub-component ────────────────────────────────────────
 
+/** Capitalise the first letter of every word */
+function toTitleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 interface AddressSectionProps {
   title:    string
   prefix:   string
@@ -194,8 +199,9 @@ interface AddressSectionProps {
 }
 
 function AddressSection({ title, prefix, form, onChange, errors }: AddressSectionProps) {
+  const TEXT_FIELDS: (keyof AddressForm)[] = ['addressLine1', 'addressLine2', 'city', 'district']
   function set(field: keyof AddressForm, value: string) {
-    onChange({ ...form, [field]: value })
+    onChange({ ...form, [field]: TEXT_FIELDS.includes(field) ? toTitleCase(value) : value })
   }
   const err = (field: string) => errors[`${prefix}.${field}`]
 
