@@ -121,6 +121,22 @@ export interface NseRegistrationResult {
   rawResponse?: unknown;
 }
 
+export interface KycCheckResult {
+  pan?:             string;
+  name?:            string;
+  kycStatus:        'S' | 'F' | null;   // S = success/verified, F = failed/not done
+  kycStatusRemark?: string;
+  kraName?:         string;
+  statusDate?:      string;
+  isVerified:       boolean;
+}
+
+export interface KycFreshRegResult {
+  success: boolean;
+  link?:   string;         // eKYC URL to send to the investor
+  message: string;
+}
+
 // ─── Client ───────────────────────────────────────────────────────────────────
 
 class NseMfClient {
@@ -470,6 +486,86 @@ class NseMfClient {
         message:     detail?.message ?? err.message ?? 'NSE API call failed',
         rawResponse: detail,
       };
+    }
+  }
+
+  // ─── Public: KYC Status Check ─────────────────────────────
+  // POST /nsemfdesk/api/v2/utility/KYC_CHECK
+
+  async checkKycStatus(panNo: string): Promise<KycCheckResult> {
+    if (this.isSandbox) {
+      logger.info(`[NSE SANDBOX] KYC check for PAN: ${panNo}`);
+      return { pan: panNo, kycStatus: 'S', kycStatusRemark: 'KYC REGISTERED', kraName: 'camskra', isVerified: true };
+    }
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        Accept:         'application/json',
+        memberId:       this.memberId,
+        Authorization:  this.buildAuthHeader(),
+      };
+      const response = await this.http.post(
+        '/nsemfdesk/api/v2/utility/KYC_CHECK',
+        { pan_no: panNo },
+        { headers },
+      );
+      const raw = response.data;
+
+      return {
+        pan:             raw.pan,
+        name:            raw.name,
+        kycStatus:       raw.kyc_status ?? null,
+        kycStatusRemark: raw.kyc_status_remark,
+        kraName:         raw.kra_name,
+        statusDate:      raw.status_date,
+        isVerified:      raw.kyc_status === 'S',
+      };
+    } catch (err: any) {
+      const detail = err?.response?.data;
+      logger.error('NSE KYC check error:', detail ?? err.message);
+      // If API returns "not found" treat as unverified, not hard error
+      return { kycStatus: null, isVerified: false, kycStatusRemark: detail?.message ?? err.message };
+    }
+  }
+
+  // ─── Public: KYC Fresh eKYC Registration ──────────────────
+  // POST /nsemfdesk/api/v1/EKYC/EKYCREG  (v1 endpoint)
+
+  async freshRegisterKyc(panNo: string, mobileNo: string, invEmail: string): Promise<KycFreshRegResult> {
+    if (this.isSandbox) {
+      logger.info(`[NSE SANDBOX] KYC fresh register for PAN: ${panNo}`);
+      return {
+        success: true,
+        link:    `https://nseinvestuat.nseindia.com/nsemfdesk/ekycVerifyByUser/SANDBOX_${panNo}`,
+        message: 'EKYC FRESH REGISTRATION REQUEST RECEIVED (SANDBOX)',
+      };
+    }
+
+    try {
+      const amcCode = process.env.NSE_AMC_CODE ?? 'AXF';
+      const headers = {
+        'Content-Type': 'application/json',
+        Accept:         'application/json',
+        memberId:       this.memberId,
+        Authorization:  this.buildAuthHeader(),
+      };
+      const mobile10 = mobileNo.replace(/^\+91/, '').replace(/\D/g, '').slice(-10);
+      const response = await this.http.post(
+        '/nsemfdesk/api/v1/EKYC/EKYCREG',
+        { amcCode, panNo, mobileNo: mobile10, invEmail },
+        { headers },
+      );
+      const raw = response.data;
+      return {
+        success: true,
+        link:    raw.link,
+        message: raw.message ?? 'eKYC registration request received',
+      };
+    } catch (err: any) {
+      const detail = err?.response?.data;
+      logger.error('NSE KYC fresh register error:', detail ?? err.message);
+      return { success: false, message: detail?.message ?? err.message ?? 'eKYC registration failed' };
     }
   }
 

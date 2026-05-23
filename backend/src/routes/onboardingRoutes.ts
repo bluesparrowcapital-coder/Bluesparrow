@@ -13,6 +13,7 @@ import {
   kycStatus,
   kycCheckKra,
   kycSubmit,
+  kycInitiateEkyc,
 } from '../controllers/onboardingController';
 
 const router = Router();
@@ -32,8 +33,9 @@ router.post('/nse-submit',   nseSubmit);           // Submit to NSE MF
 router.get( '/nse-status',   nseStatusHandler);    // Get NSE MF registration status
 
 // ─── KYC routes ──────────────────────────────────────────
-router.get( '/kyc/status',   kycStatus);           // Get current KYC status + logs
-router.post('/kyc/check-kra', kycCheckKra);        // Check KYC from KRA (auto-check via PAN)
-router.post('/kyc/submit',   kycSubmit);           // Submit KYC request manually
+router.get( '/kyc/status',         kycStatus);        // Get current KYC status + logs
+router.post('/kyc/check-kra',      kycCheckKra);      // Check KYC via NSE KYC_CHECK API
+router.post('/kyc/submit',         kycSubmit);        // Legacy — delegates to initiate-ekyc
+router.post('/kyc/initiate-ekyc',  kycInitiateEkyc);  // Initiate eKYC fresh registration via NSE
 
 export default router;

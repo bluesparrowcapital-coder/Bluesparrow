@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { checkAndAutoSubmitToNse } from './clientProfileService';
+import { nseMfClient } from '../integrations/nsemf/NseMfClient';
 
 const prisma = new PrismaClient();
 
@@ -32,23 +33,33 @@ export async function getKycStatus(userId: string) {
     select: { id: true, docType: true, isVerified: true, verifiedAt: true, rejectionReason: true, createdAt: true },
   });
 
+  // Also fetch eKYC link if any
+  const profile = await prisma.clientProfile.findUnique({
+    where:  { userId },
+    select: { nseKycStatus: true, nseKycRemark: true, nseEkycLink: true, nseEkycLinkSentAt: true },
+  });
+
   return {
-    status:      user.kycStatus,
-    verifiedAt:  user.kycVerifiedAt,
-    panNumber:   user.panNumber,
-    statusLabel: kycStatusLabel(user.kycStatus),
-    statusColor: kycStatusColor(user.kycStatus),
-    nextAction:  kycNextAction(user.kycStatus),
-    logs:        logs.map((l) => ({
+    status:          user.kycStatus,
+    verifiedAt:      user.kycVerifiedAt,
+    panNumber:       user.panNumber,
+    statusLabel:     kycStatusLabel(user.kycStatus),
+    statusColor:     kycStatusColor(user.kycStatus),
+    nextAction:      kycNextAction(user.kycStatus),
+    nseKycStatus:    profile?.nseKycStatus ?? null,
+    nseKycRemark:    profile?.nseKycRemark ?? null,
+    ekycLink:        profile?.nseEkycLink ?? null,
+    ekycLinkSentAt:  profile?.nseEkycLinkSentAt ?? null,
+    logs:            logs.map((l) => ({
       ...l,
-      kraLabel: l.kraName ? KRA_LABELS[l.kraName] ?? l.kraName : null,
+      kraLabel: l.kraName ? KRA_LABELS[l.kraName.toUpperCase()] ?? l.kraName : null,
     })),
     documents,
   };
 }
 
-// ─── CHECK KYC FROM KRA (PAN lookup) ──────────────────────
-// Called when user submits profile — check if KYC already done via PAN
+// ─── CHECK KYC FROM NSE KYC_CHECK API ─────────────────────
+// Replaces the old mock-based KRA check — now calls real NSE API
 
 export async function checkKycFromKra(userId: string) {
   const user = await prisma.user.findUnique({
@@ -57,24 +68,35 @@ export async function checkKycFromKra(userId: string) {
   });
   if (!user?.panNumber) throw new Error('PAN number not found. Complete profile first');
 
-  // TODO: Real KRA API call in Phase 2
-  // const kraResult = await KraClient.checkKyc(user.panNumber);
-
-  // Simulate KRA response for now
-  const mockResult = await simulateKraCheck(user.panNumber);
+  // Call real NSE KYC_CHECK API
+  const nseResult = await nseMfClient.checkKycStatus(user.panNumber);
 
   const oldStatus = user.kycStatus;
   let newStatus   = oldStatus;
 
-  if (mockResult.isKycDone) {
+  // Treat 'S' as verified; null/F/KYC_CHECK_SERVICE_DOWN as not verified
+  const isVerified = nseResult.isVerified;
+  const isServiceDown = nseResult.kycStatusRemark === 'KYC_CHECK_SERVICE_DOWN';
+
+  if (isVerified) {
     newStatus = 'VERIFIED';
     await prisma.user.update({
       where: { id: userId },
       data:  { kycStatus: 'VERIFIED', kycVerifiedAt: new Date(), onboardingStep: 'KYC_VERIFIED' },
     });
-  } else {
+    // Save NSE KYC status to client profile if it exists
+    await prisma.clientProfile.updateMany({
+      where: { userId },
+      data:  { nseKycStatus: nseResult.kycStatus, nseKycRemark: nseResult.kycStatusRemark },
+    });
+  } else if (!isServiceDown) {
     newStatus = 'PENDING';
+    await prisma.clientProfile.updateMany({
+      where: { userId },
+      data:  { nseKycStatus: nseResult.kycStatus ?? 'F', nseKycRemark: nseResult.kycStatusRemark },
+    });
   }
+  // If service down, keep current status unchanged (don't penalize the user)
 
   // Log the status change
   if (oldStatus !== newStatus) {
@@ -84,40 +106,63 @@ export async function checkKycFromKra(userId: string) {
         oldStatus: oldStatus as any,
         newStatus: newStatus as any,
         source:    'KRA',
-        kraName:   mockResult.kraName,
-        remark:    mockResult.isKycDone ? 'KYC verified via KRA' : 'KYC not found in KRA records',
+        kraName:   nseResult.kraName?.toUpperCase() ?? null,
+        remark:    isVerified
+                     ? `KYC verified via NSE (${nseResult.kycStatusRemark ?? ''})`
+                     : `KYC not verified: ${nseResult.kycStatusRemark ?? 'Unknown'}`,
         updatedBy: 'SYSTEM',
       },
     });
     logger.info(`KYC status updated for user ${userId}: ${oldStatus} → ${newStatus}`);
   }
 
-  // Auto-submit to NSE MF now that KYC is verified (if all other steps done)
-  if (mockResult.isKycDone) {
+  // Auto-submit to NSE MF if KYC now verified and all other steps complete
+  if (isVerified) {
     setImmediate(() => checkAndAutoSubmitToNse(userId));
   }
 
   return {
-    isKycDone:  mockResult.isKycDone,
-    status:     newStatus,
-    kraName:    mockResult.kraName ? KRA_LABELS[mockResult.kraName] ?? mockResult.kraName : null,
-    message:    mockResult.isKycDone
-                  ? 'KYC verified successfully via KRA'
-                  : 'KYC not found. Please submit KYC documents',
+    isKycDone:       isVerified,
+    status:          newStatus,
+    nseKycStatus:    nseResult.kycStatus,
+    nseKycRemark:    nseResult.kycStatusRemark,
+    kraName:         nseResult.kraName ? KRA_LABELS[nseResult.kraName.toUpperCase()] ?? nseResult.kraName : null,
+    serviceDown:     isServiceDown,
+    message:         isServiceDown
+                       ? 'KYC check service is temporarily unavailable. Please try again later.'
+                       : isVerified
+                         ? 'KYC verified successfully'
+                         : `KYC not verified: ${nseResult.kycStatusRemark ?? 'Not registered'}`,
   };
 }
 
-// ─── SUBMIT KYC (when KYC not done) ───────────────────────
+// ─── INITIATE eKYC (fresh register when KYC not done) ─────
 
-export async function submitKycRequest(userId: string) {
+export async function initiateEkyc(userId: string) {
   const user = await prisma.user.findUnique({
     where:  { id: userId },
-    select: { kycStatus: true, panNumber: true },
+    select: { id: true, panNumber: true, phone: true, email: true, kycStatus: true },
   });
   if (!user) throw new Error('User not found');
   if (user.kycStatus === 'VERIFIED') throw new Error('KYC already verified');
   if (!user.panNumber) throw new Error('Complete client profile first');
+  if (!user.phone) throw new Error('Mobile number not found. Complete profile first');
+  if (!user.email) throw new Error('Email not found. Complete profile first');
 
+  // Call NSE eKYC fresh registration API
+  const ekycResult = await nseMfClient.freshRegisterKyc(user.panNumber, user.phone, user.email);
+
+  if (!ekycResult.success) {
+    throw new Error(ekycResult.message ?? 'eKYC registration failed');
+  }
+
+  // Save the eKYC link to the client profile
+  await prisma.clientProfile.updateMany({
+    where: { userId },
+    data:  { nseEkycLink: ekycResult.link, nseEkycLinkSentAt: new Date() },
+  });
+
+  // Update user onboarding step
   const oldStatus = user.kycStatus;
   await prisma.user.update({
     where: { id: userId },
@@ -130,13 +175,24 @@ export async function submitKycRequest(userId: string) {
       oldStatus: oldStatus as any,
       newStatus: 'SUBMITTED',
       source:    'KRA',
-      remark:    'KYC submission initiated by user',
+      remark:    'eKYC registration initiated via NSE EKYCREG API',
       updatedBy: 'SYSTEM',
     },
   });
 
-  logger.info(`KYC submitted for user: ${userId}`);
-  return { status: 'SUBMITTED', message: 'KYC submitted. Verification usually takes 1-2 business days' };
+  logger.info(`eKYC initiated for user: ${userId}`);
+  return {
+    success:  true,
+    ekycLink: ekycResult.link,
+    message:  ekycResult.message ?? 'eKYC registration initiated. Please complete KYC using the link provided.',
+  };
+}
+
+// ─── SUBMIT KYC (legacy — kept for backwards compatibility) ──
+
+export async function submitKycRequest(userId: string) {
+  // Delegate to the new eKYC initiation flow
+  return initiateEkyc(userId);
 }
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -163,15 +219,11 @@ function kycStatusColor(status: string): string {
 
 function kycNextAction(status: string): string {
   const actions: Record<string, string> = {
-    PENDING:   'Check KYC status or submit KYC documents',
-    SUBMITTED: 'KYC is under review. No action needed',
+    PENDING:   'Check KYC status via NSE or initiate eKYC registration',
+    SUBMITTED: 'KYC in progress. Complete the eKYC link sent to your email/phone',
     VERIFIED:  'KYC complete. You can now invest',
     REJECTED:  'KYC rejected. Please re-submit with correct documents',
   };
   return actions[status] ?? '';
 }
 
-// Demo: all PANs pass KYC (real KRA API in Phase 2)
-async function simulateKraCheck(_pan: string) {
-  return { isKycDone: true, kraName: 'CAMSKRA' };
-}

@@ -218,6 +218,12 @@ model ClientProfile {
   nseOnboardedAt      DateTime?
   nseRawResponse      Json?               // Store raw NSE API response
 
+  // NSE KYC fields
+  nseKycStatus        String?             // 'S' = verified, 'F' = failed/not done (from NSE KYC_CHECK)
+  nseKycRemark        String?             // e.g. 'KYC REGISTERED', 'NOT AVAILABLE'
+  nseEkycLink         String?             // eKYC URL returned by NSE EKYCREG API
+  nseEkycLinkSentAt   DateTime?           // When the eKYC link was last generated
+
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 

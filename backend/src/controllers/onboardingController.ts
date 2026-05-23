@@ -14,6 +14,7 @@ import {
   getKycStatus,
   checkKycFromKra,
   submitKycRequest,
+  initiateEkyc,
 } from '../services/kycService';
 import {
   clientProfileSchema,
@@ -158,6 +159,16 @@ export async function kycCheckKra(req: AuthRequest, res: Response) {
 export async function kycSubmit(req: AuthRequest, res: Response) {
   try {
     const result = await submitKycRequest(req.user!.userId);
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+}
+
+// ─── POST /kyc/initiate-ekyc ─────────────────────────────
+export async function kycInitiateEkyc(req: AuthRequest, res: Response) {
+  try {
+    const result = await initiateEkyc(req.user!.userId);
     res.json({ success: true, ...result });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });
