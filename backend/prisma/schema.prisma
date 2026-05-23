@@ -1,0 +1,495 @@
+// This is your Prisma schema file
+// Blue Sparrow MF Platform - Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────
+
+enum KycStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+enum TransactionType {
+  BUY
+  SELL
+  SWITCH_IN
+  SWITCH_OUT
+  SWP
+  STP
+  DIVIDEND
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum SipFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+}
+
+enum SipStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  COMPLETED
+}
+
+enum UserRole {
+  INVESTOR
+  DISTRIBUTOR
+  ADMIN
+}
+
+enum RiskLevel {
+  LOW
+  MODERATE_LOW
+  MODERATE
+  MODERATE_HIGH
+  HIGH
+  VERY_HIGH
+}
+
+// Investor onboarding progress
+enum OnboardingStep {
+  REGISTERED          // Phone + PIN set
+  PROFILE_CREATED     // Client profile filled
+  KYC_SUBMITTED       // KYC docs submitted
+  KYC_VERIFIED        // KYC verified by KRA/CKYC
+  NSE_ONBOARDED       // Registered on NSE MF platform
+}
+
+// KYC source / channel
+enum KycSource {
+  KRA          // KYC Registration Agency (CAMS, Karvy, CVL, NDML)
+  CKYC         // Central KYC (CERSAI)
+  VIDEO_KYC    // V-CIP based
+  MANUAL       // Physical KYC
+}
+
+// NSE MF Client onboarding status
+enum NseOnboardingStatus {
+  PENDING
+  SUBMITTED
+  REGISTERED
+  FAILED
+}
+
+// Tax residential status for NSE MF
+enum TaxStatus {
+  INDIVIDUAL
+  NRI
+  PIO
+  HUF
+  COMPANY
+  PARTNERSHIP
+}
+
+// Address type
+enum AddressType {
+  PERMANENT
+  CORRESPONDENCE
+}
+
+// ─── MODELS ───────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  phone         String    @unique
+  fullName      String
+  panNumber     String?   @unique
+  dob           DateTime?
+  gender        String?
+  role          UserRole  @default(INVESTOR)
+  kycStatus     KycStatus @default(PENDING)
+  kycVerifiedAt DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // PIN Authentication
+  pinHash        String?
+  pinSetAt       DateTime?
+  pinAttempts    Int       @default(0)
+  pinLockedUntil DateTime?
+
+  // Onboarding progress tracker
+  onboardingStep OnboardingStep @default(REGISTERED)
+
+  // Relations
+  distributor          Distributor?
+  bankAccounts         BankAccount[]
+  portfolios           Portfolio[]
+  transactions         Transaction[]
+  sipMandates          SipMandate[]
+  goals                Goal[]
+  kycDocuments         KycDocument[]
+  notifications        Notification[]
+  biometricCredentials BiometricCredential[]
+  refreshTokens        RefreshToken[]
+  clientProfile        ClientProfile?
+  addresses            Address[]
+  nominees             Nominee[]
+  kycStatusLogs        KycStatusLog[]
+
+  @@map("users")
+}
+
+// WebAuthn / Fingerprint credentials
+model BiometricCredential {
+  id               String   @id @default(uuid())
+  userId           String
+  credentialId     String   @unique  // WebAuthn credential ID (base64url)
+  publicKey        Bytes               // WebAuthn public key
+  counter          BigInt   @default(0) // signature counter (replay protection)
+  deviceName       String?             // e.g. "iPhone 15", "Chrome on Windows"
+  transports       String[]            // e.g. ["internal", "usb"]
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  lastUsedAt       DateTime?
+
+  user  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("biometric_credentials")
+}
+
+// JWT Refresh Tokens (rotation strategy)
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique  // hashed refresh token
+  deviceInfo String?
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ─── CLIENT PROFILE ─────────────────────────────────────────
+// Extended personal info required for NSE MF onboarding
+
+model ClientProfile {
+  id                  String              @id @default(uuid())
+  userId              String              @unique
+
+  // Personal Details
+  panNumber           String              @unique
+  fullNameAsPan       String              // Name exactly as on PAN card
+  dob                 DateTime
+  gender              String              // M / F / T
+  fatherOrSpouseName  String
+  motherName          String?
+  maritalStatus       String?             // SINGLE / MARRIED
+  occupation          String              // BUSINESS / SERVICE / PROFESSIONAL / etc.
+  taxStatus           TaxStatus           @default(INDIVIDUAL)
+  annualIncome        String?             // income slab: <1L / 1-5L / 5-10L etc.
+
+  // Contact
+  email               String
+  mobile              String
+
+  // PEP (Politically Exposed Person) — SEBI mandatory
+  isPep               Boolean             @default(false)
+  isRelatedToPep      Boolean             @default(false)
+
+  // NSE MF Registration
+  nseClientCode       String?             @unique  // NSE MF assigned client code
+  nseOnboardingStatus NseOnboardingStatus @default(PENDING)
+  nseOnboardedAt      DateTime?
+  nseRawResponse      Json?               // Store raw NSE API response
+
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  user  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("client_profiles")
+}
+
+// ─── ADDRESS ──────────────────────────────────────────────
+
+model Address {
+  id           String      @id @default(uuid())
+  userId       String
+  type         AddressType
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  district     String?
+  state        String
+  pincode      String
+  country      String      @default("India")
+  isPrimary    Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@map("addresses")
+}
+
+// ─── NOMINEE ──────────────────────────────────────────────
+
+model Nominee {
+  id           String   @id @default(uuid())
+  userId       String
+  fullName     String
+  relationship String   // SON / DAUGHTER / SPOUSE / PARENT / SIBLING / OTHER
+  dob          DateTime?
+  percentage   Int      @default(100)  // allocation % (multiple nominees sum = 100)
+  guardianName String?  // if nominee is minor
+  guardianRel  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("nominees")
+}
+
+// ─── KYC STATUS LOG ───────────────────────────────────────
+// Track every KYC status change with reason
+
+model KycStatusLog {
+  id        String     @id @default(uuid())
+  userId    String
+  oldStatus KycStatus?
+  newStatus KycStatus
+  source    KycSource  @default(KRA)
+  kraName   String?    // CAMSKRA / CVLKRA / NDMLKRA / KARVYKRA
+  remark    String?
+  updatedBy String?    // admin userId or 'SYSTEM'
+  createdAt DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("kyc_status_logs")
+}
+
+model Distributor {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  arnNumber     String   @unique
+  euinNumber    String?
+  firmName      String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id])
+  clients  Portfolio[]
+
+  @@map("distributors")
+}
+
+model Fund {
+  id              String    @id @default(uuid())
+  schemeCode      String    @unique   // BSE / AMFI code
+  isinGrowth      String?
+  isinDividend    String?
+  schemeName      String
+  fundHouse       String
+  category        String    // Equity, Debt, Hybrid, etc.
+  subCategory     String?
+  schemeType      String    // Open-ended, Close-ended
+  riskLevel       RiskLevel
+  nav             Float?
+  navDate         DateTime?
+  aum             Float?    // in Crores
+  expenseRatio    Float?
+  minSipAmount    Float     @default(500)
+  minLumpsum      Float     @default(1000)
+  exitLoad        String?
+  lockInPeriod    Int?      // in months
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  navHistory      NavHistory[]
+  portfolios      Portfolio[]
+  transactions    Transaction[]
+  sipMandates     SipMandate[]
+
+  @@map("funds")
+}
+
+model NavHistory {
+  id       String   @id @default(uuid())
+  fundId   String
+  nav      Float
+  navDate  DateTime
+
+  fund Fund @relation(fields: [fundId], references: [id])
+
+  @@unique([fundId, navDate])
+  @@map("nav_history")
+}
+
+model BankAccount {
+  id            String  @id @default(uuid())
+  userId        String
+  accountNumber String
+  ifscCode      String
+  bankName      String
+  accountHolder String
+  isDefault     Boolean @default(false)
+  isVerified    Boolean @default(false)
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("bank_accounts")
+}
+
+model Portfolio {
+  id              String   @id @default(uuid())
+  userId          String
+  fundId          String
+  distributorId   String?
+  folioNumber     String?
+  unitsHeld       Float    @default(0)
+  avgNav          Float    @default(0)
+  investedAmount  Float    @default(0)
+  currentValue    Float    @default(0)
+  lastUpdated     DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id])
+  fund         Fund         @relation(fields: [fundId], references: [id])
+  distributor  Distributor? @relation(fields: [distributorId], references: [id])
+  transactions Transaction[]
+  sipMandates  SipMandate[]
+
+  @@unique([userId, fundId, folioNumber])
+  @@map("portfolios")
+}
+
+model Transaction {
+  id              String            @id @default(uuid())
+  userId          String
+  fundId          String
+  portfolioId     String?
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  amount          Float
+  units           Float?
+  navAtTxn        Float?
+  bseOrderId      String?
+  paymentRef      String?
+  txnDate         DateTime          @default(now())
+  settlementDate  DateTime?
+  remarks         String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id])
+  fund      Fund       @relation(fields: [fundId], references: [id])
+  portfolio Portfolio? @relation(fields: [portfolioId], references: [id])
+
+  @@map("transactions")
+}
+
+model SipMandate {
+  id                  String       @id @default(uuid())
+  userId              String
+  fundId              String
+  portfolioId         String?
+  amount              Float
+  frequency           SipFrequency @default(MONTHLY)
+  sipDate             Int          // Day of month (1-28)
+  startDate           DateTime
+  endDate             DateTime?
+  nextExecutionDate   DateTime?
+  installmentsDone    Int          @default(0)
+  totalInstallments   Int?
+  status              SipStatus    @default(ACTIVE)
+  mandateId           String?      // Razorpay mandate ID
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id])
+  fund      Fund       @relation(fields: [fundId], references: [id])
+  portfolio Portfolio? @relation(fields: [portfolioId], references: [id])
+
+  @@map("sip_mandates")
+}
+
+model Goal {
+  id             String   @id @default(uuid())
+  userId         String
+  goalName       String
+  targetAmount   Float
+  currentAmount  Float    @default(0)
+  targetDate     DateTime
+  isCompleted    Boolean  @default(false)
+  linkedSipIds   String[] // Array of SIP mandate IDs
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("goals")
+}
+
+model KycDocument {
+  id               String   @id @default(uuid())
+  userId           String
+  docType          String   // PAN, AADHAAR, PHOTO, SIGNATURE, BANK
+  docUrl           String
+  isVerified       Boolean  @default(false)
+  verifiedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("kyc_documents")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  type      String   // TXN, SIP, KYC, GENERAL
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model OtpVerification {
+  id        String   @id @default(uuid())
+  phone     String
+  otp       String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("otp_verifications")
+}
