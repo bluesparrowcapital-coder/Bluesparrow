@@ -18,7 +18,7 @@ const schema = z.object({
   }, 'Must be 18 years or older'),
   gender:             z.enum(['M', 'F', 'T'], { errorMap: () => ({ message: 'Select gender' }) }),
   fatherOrSpouseName: z.string().min(2, 'Required'),
-  occupation:         z.enum(['SALARIED', 'SELF_EMPLOYED', 'BUSINESS', 'RETIRED', 'STUDENT', 'HOUSEWIFE', 'OTHERS']),
+  occupation:         z.enum(['SERVICE', 'PROFESSIONAL', 'BUSINESS', 'AGRICULTURIST', 'RETIRED', 'HOUSEWIFE', 'STUDENT', 'OTHER']),
   taxStatus:          z.enum(['INDIVIDUAL', 'HUF', 'NRI', 'PIO']),
   isPep:              z.boolean(),
 })
@@ -34,7 +34,7 @@ export default function CreateProfilePage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { gender: 'M', occupation: 'SALARIED', taxStatus: 'INDIVIDUAL', isPep: false },
+    defaultValues: { gender: 'M', occupation: 'SERVICE', taxStatus: 'INDIVIDUAL', isPep: false },
   })
 
   // ── Load: server profile → localStorage draft → prefill ──
@@ -160,13 +160,14 @@ export default function CreateProfilePage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Occupation</label>
               <select {...register('occupation')} className="input-field">
-                <option value="SALARIED">Salaried</option>
-                <option value="SELF_EMPLOYED">Self Employed</option>
+                <option value="SERVICE">Salaried / Service</option>
+                <option value="PROFESSIONAL">Self Employed / Professional</option>
                 <option value="BUSINESS">Business</option>
+                <option value="AGRICULTURIST">Agriculturist</option>
                 <option value="RETIRED">Retired</option>
-                <option value="STUDENT">Student</option>
                 <option value="HOUSEWIFE">Housewife</option>
-                <option value="OTHERS">Others</option>
+                <option value="STUDENT">Student</option>
+                <option value="OTHER">Others</option>
               </select>
             </div>
             <div>
