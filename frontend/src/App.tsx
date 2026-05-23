@@ -42,7 +42,7 @@ function DashboardPage() {
           Finish KYC verification and bank setup to start investing.
         </p>
         <a href="/onboarding/status" className="inline-block bg-white text-sparrow-blue text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">
-          Go to Onboarding →
+          Go to My Profile →
         </a>
       </div>
       <div className="card bg-yellow-50 border border-yellow-200">
