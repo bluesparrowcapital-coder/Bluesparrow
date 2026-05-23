@@ -4,6 +4,7 @@ import {
   onboardingStatus,
   createProfile,
   fetchProfile,
+  getPrefillData,
   saveAddressHandler,
   fetchAddresses,
   saveNomineesHandler,
@@ -20,6 +21,7 @@ router.use(authenticate);
 
 // ─── Onboarding flow ─────────────────────────────────────
 router.get( '/status',       onboardingStatus);   // Get overall onboarding progress
+router.get( '/prefill',      getPrefillData);      // Auto-fill profile from registration data
 router.post('/profile',      createProfile);       // Step 2: Save client profile
 router.get( '/profile',      fetchProfile);        // Get saved profile
 router.post('/address',      saveAddressHandler);  // Step 3: Save address (permanent/correspondence)

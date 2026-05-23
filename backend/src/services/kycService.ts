@@ -165,12 +165,7 @@ function kycNextAction(status: string): string {
   return actions[status] ?? '';
 }
 
-// Placeholder until real KRA API integration in Phase 2
-async function simulateKraCheck(pan: string) {
-  // In dev/test: treat PAN starting with 'A' as KYC done
-  const isKycDone = pan.startsWith('A');
-  return {
-    isKycDone,
-    kraName: isKycDone ? 'CAMSKRA' : null,
-  };
+// Demo: all PANs pass KYC (real KRA API in Phase 2)
+async function simulateKraCheck(_pan: string) {
+  return { isKycDone: true, kraName: 'CAMSKRA' };
 }

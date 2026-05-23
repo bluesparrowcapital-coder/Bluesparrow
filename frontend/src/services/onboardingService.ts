@@ -6,6 +6,9 @@ export const onboardingService = {
   getStatus: () =>
     api.get('/onboarding/status').then((r) => r.data.data),
 
+  getPrefill: () =>
+    api.get('/onboarding/prefill').then((r) => r.data.data as { fullName: string; panNumber: string | null }),
+
   saveProfile: (data: Record<string, unknown>) =>
     api.post('/onboarding/profile', data).then((r) => r.data),
 

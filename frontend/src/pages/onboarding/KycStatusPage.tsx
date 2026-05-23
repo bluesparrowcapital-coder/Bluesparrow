@@ -41,6 +41,7 @@ export default function KycStatusPage() {
     try {
       const res = await kycService.getStatus()
       setData(res)
+      return res
     } catch {
       toast.error('Could not load KYC status')
     } finally {
@@ -48,20 +49,33 @@ export default function KycStatusPage() {
     }
   }
 
-  useEffect(() => { load() }, [])
-
   async function handleCheckKra() {
     setChecking(true)
     try {
-      const res = await kycService.checkKra()
-      setData(res)
-      toast.success('KRA check complete')
-    } catch {
-      toast.error('KRA check failed')
+      await kycService.checkKra()            // trigger the check
+      const updated = await kycService.getStatus()  // reload full status with labels
+      setData(updated)
+      if (updated?.status === 'VERIFIED') {
+        toast.success('KYC Verified successfully! ✓')
+      } else {
+        toast.success('KYC check complete')
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'KRA check failed'
+      toast.error(msg)
     } finally {
       setChecking(false)
     }
   }
+
+  useEffect(() => {
+    load().then((res) => {
+      // Auto-trigger KRA check if KYC is still pending
+      if (res?.status === 'PENDING') {
+        handleCheckKra()
+      }
+    })
+  }, [])
 
   async function handleSubmitKyc() {
     setSubmitting(true)

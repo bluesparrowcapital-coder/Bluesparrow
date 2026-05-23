@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
 import {
   createClientProfile,
   getClientProfile,
@@ -20,6 +21,8 @@ import {
   nomineeSchema,
 } from '../utils/onboardingValidators';
 import type { AuthRequest } from '../middleware/authMiddleware';
+
+const prisma = new PrismaClient();
 
 function badRequest(res: Response, errors: z.ZodIssue[]) {
   res.status(400).json({
@@ -133,6 +136,20 @@ export async function kycSubmit(req: AuthRequest, res: Response) {
   try {
     const result = await submitKycRequest(req.user!.userId);
     res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+}
+
+// ─── GET /onboarding/prefill ─────────────────────────────
+// Returns user's registration data to pre-fill the profile form
+export async function getPrefillData(req: AuthRequest, res: Response) {
+  try {
+    const user = await prisma.user.findUnique({
+      where:  { id: req.user!.userId },
+      select: { fullName: true, panNumber: true, email: true, phone: true },
+    });
+    res.json({ success: true, data: user });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });
   }

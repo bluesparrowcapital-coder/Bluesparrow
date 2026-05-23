@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Loader2, ArrowLeft } from 'lucide-react'
+import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 import { onboardingService } from '../../services/onboardingService'
 
 const schema = z.object({
@@ -24,8 +24,9 @@ type FormData = z.infer<typeof schema>
 
 export default function CreateProfilePage() {
   const navigate = useNavigate()
+  const [prefilling, setPrefilling] = useState(false)
   const {
-    register, handleSubmit, reset,
+    register, handleSubmit, reset, setValue, getValues,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -33,10 +34,33 @@ export default function CreateProfilePage() {
   })
 
   useEffect(() => {
+    // First try to load existing saved profile
     onboardingService.getProfile()
-      .then((p) => p && reset(p))
+      .then((p) => { if (p) reset(p) })
       .catch(() => {/* no profile yet */})
-  }, [reset])
+
+    // Auto-fill PAN + name from registration data (runs in background)
+    onboardingService.getPrefill()
+      .then((u) => {
+        if (!getValues('panNumber') && u.panNumber) setValue('panNumber', u.panNumber)
+        if (!getValues('fullNameAsPan') && u.fullName) setValue('fullNameAsPan', u.fullName.toUpperCase())
+      })
+      .catch(() => {/* silent */})
+  }, [reset, setValue, getValues])
+
+  async function handlePanPrefill() {
+    setPrefilling(true)
+    try {
+      const u = await onboardingService.getPrefill()
+      if (u.panNumber) setValue('panNumber', u.panNumber)
+      if (u.fullName)  setValue('fullNameAsPan', u.fullName.toUpperCase())
+      toast.success('Details filled from your registration data!')
+    } catch {
+      toast.error('Could not fetch details')
+    } finally {
+      setPrefilling(false)
+    }
+  }
 
   async function onSubmit(data: FormData) {
     try {
@@ -58,6 +82,19 @@ export default function CreateProfilePage() {
         <p className="text-slate-500 text-sm mb-6">Required for NSE MF onboarding</p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4">
+          {/* Auto-fill banner */}
+          <button
+            type="button"
+            onClick={handlePanPrefill}
+            disabled={prefilling}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-50 border border-blue-200 text-sparrow-blue rounded-xl text-sm font-medium hover:bg-blue-100 transition"
+          >
+            {prefilling
+              ? <><Loader2 size={15} className="animate-spin" /> Fetching...</>
+              : <><Sparkles size={15} /> Auto-fill from registration data</>
+            }
+          </button>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">PAN Number</label>
             <input {...register('panNumber')} placeholder="ABCDE1234F" className="input-field uppercase" style={{ textTransform: 'uppercase' }} />
