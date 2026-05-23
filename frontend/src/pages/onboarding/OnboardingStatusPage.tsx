@@ -58,7 +58,7 @@ export default function OnboardingStatusPage() {
           </div>
           <h1 className="text-2xl font-bold text-slate-800">Complete Your Profile</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {allDone ? '🎉 You're all set to invest!' : 'Complete these steps to start investing'}
+            {allDone ? "🎉 You're all set to invest!" : 'Complete these steps to start investing'}
           </p>
         </div>
 
