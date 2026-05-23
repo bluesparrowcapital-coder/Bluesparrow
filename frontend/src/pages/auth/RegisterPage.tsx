@@ -12,7 +12,7 @@ const schema = z.object({
   fullName:   z.string().min(2, 'Name must be at least 2 characters'),
   email:      z.string().email('Invalid email address'),
   phone:      z.string().regex(/^[6-9]\d{9}$/, 'Enter valid 10-digit mobile number'),
-  panNumber:  z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN format (e.g. ABCDE1234F)').optional().or(z.literal('')),
+  panNumber:  z.string().regex(/^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/i, 'Invalid PAN format (e.g. ABCDE1234F)').optional().or(z.literal('')),
 })
 type FormData = z.infer<typeof schema>
 
@@ -32,7 +32,7 @@ export default function RegisterPage() {
         fullName:  data.fullName,
         email:     data.email,
         phone:     data.phone,
-        panNumber: data.panNumber || undefined,
+        panNumber: data.panNumber ? data.panNumber.toUpperCase() : undefined,
       })
       dispatch(setUser({ userId: res.data.userId, phone: data.phone, fullName: data.fullName }))
       toast.success('Account created! Now set your PIN.')
