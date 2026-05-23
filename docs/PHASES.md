@@ -22,8 +22,8 @@ Phase 6  ─── Production & Compliance     (Week 27-30)
 - Project setup ✅
 - Database design complete ✅
 - Auth system (PIN + WebAuthn biometric) ✅
-- NSE MF Client onboarding flow ✅
-- KYC status tracking ✅
+- NSE MF Client onboarding flow ✅ (real NSE NMF II v1.9.6 API)
+- KYC status tracking ✅ (real NSE KYC_CHECK + eKYC fresh register)
 
 ### Tasks
 
@@ -55,8 +55,9 @@ Phase 6  ─── Production & Compliance     (Week 27-30)
 - [x] Nominee management (up to 3, % allocation must sum 100, minor → guardian)
 - [x] Bank account CRUD (up to 5, default account, IFSC validation)
 - [x] KYC status tracking (PENDING/SUBMITTED/VERIFIED/REJECTED + log history)
-- [x] KYC via KRA check (simulated) + manual submit
-- [x] NSE MF submission stub (Phase 2 real API)
+- [x] KYC via KRA check (real NSE KYC_CHECK API) + eKYC fresh register
+- [x] NSE MF submission (real NSE NMF II v1.9.6 CLIENTCOMMON183 API)
+- [x] KYC gate before UCC registration (auto-triggers eKYC if not verified)
 - [x] 7-step onboarding checklist with progress %
 
 #### 1.5 UI Foundation ✅

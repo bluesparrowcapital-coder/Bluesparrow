@@ -17,9 +17,10 @@ interface OnboardingStatus {
 }
 
 interface NseStatus {
-  status:      'PENDING' | 'SUBMITTED' | 'REGISTERED' | 'FAILED'
+  status:      'PENDING' | 'SUBMITTED' | 'REGISTERED' | 'FAILED' | 'KYC_PENDING'
   clientCode:  string | null
   onboardedAt: string | null
+  ekycLink?:   string | null
 }
 
 const STEPS = [
@@ -53,11 +54,16 @@ export default function OnboardingStatusPage() {
     setSubmitting(true)
     try {
       const result = await onboardingService.submitToNse()
-      toast.success(result.message ?? 'Submitted to NSE MF!')
-      const n = await onboardingService.getNseStatus()
-      setNseStatus(n)
-      const s = await onboardingService.getStatus()
-      setStatus(s)
+      if (result.status === 'KYC_PENDING' && result.ekycLink) {
+        setNseStatus({ status: 'KYC_PENDING', clientCode: null, onboardedAt: null, ekycLink: result.ekycLink })
+        toast.error('KYC required before NSE registration. Complete eKYC first.')
+      } else {
+        toast.success(result.message ?? 'Submitted to NSE MF!')
+        const n = await onboardingService.getNseStatus()
+        setNseStatus(n)
+        const s = await onboardingService.getStatus()
+        setStatus(s)
+      }
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'NSE submission failed')
     } finally {
@@ -162,6 +168,22 @@ export default function OnboardingStatusPage() {
                       <p className="text-xs text-green-700 font-semibold">NSE Client Code</p>
                       <p className="text-sm font-mono font-bold text-green-800 tracking-widest">{nseStatus.clientCode}</p>
                     </div>
+                  </div>
+                )}
+
+                {/* eKYC required before NSE registration */}
+                {isNse && !done && nseStatus?.status === 'KYC_PENDING' && nseStatus.ekycLink && (
+                  <div className="mx-3 mb-1 p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                    <p className="text-xs font-semibold text-amber-700">⚠️ KYC verification required before NSE registration</p>
+                    <a
+                      href={nseStatus.ekycLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-center text-xs bg-amber-500 text-white py-2 rounded-lg hover:bg-amber-600 transition"
+                    >
+                      Complete eKYC on NSE Portal →
+                    </a>
+                    <p className="text-xs text-amber-600">After completing eKYC, come back and click "Register on NSE MF Now"</p>
                   </div>
                 )}
 

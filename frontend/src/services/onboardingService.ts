@@ -46,6 +46,9 @@ export const kycService = {
 
   submit: () =>
     api.post('/onboarding/kyc/submit').then((r) => r.data),
+
+  initiateEkyc: () =>
+    api.post('/onboarding/kyc/initiate-ekyc').then((r) => r.data as { success: boolean; ekycLink?: string; message?: string }),
 };
 
 // ─── Bank Account ─────────────────────────────────────────

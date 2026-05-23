@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, ArrowLeft, RefreshCw, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { Loader2, ArrowLeft, RefreshCw, AlertCircle, CheckCircle2, Clock, XCircle, ExternalLink } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { kycService } from '../../services/onboardingService'
 
 interface KycStatus {
-  status:      string
-  statusLabel: string
-  statusColor: string
-  nextAction:  string
-  kraName?:    string
-  logs:        { createdAt: string; status: string; kraName?: string; remark?: string }[]
+  status:         string
+  statusLabel:    string
+  statusColor:    string
+  nextAction:     string
+  kraName?:       string
+  ekycLink?:      string | null
+  ekycLinkSentAt?: string | null
+  logs:           { createdAt: string; status: string; kraName?: string; remark?: string }[]
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -135,19 +137,32 @@ export default function KycStatusPage() {
             Check KYC via KRA
           </button>
 
-          {data?.status !== 'KYC_VERIFIED' && (
+          {data?.status !== 'VERIFIED' && (
             <button
               className="btn-primary"
               onClick={handleSubmitKyc}
-              disabled={submitting || data?.status === 'KYC_SUBMITTED'}
+              disabled={submitting || data?.status === 'SUBMITTED'}
             >
               {submitting
                 ? <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" /> Submitting...</span>
-                : data?.status === 'KYC_SUBMITTED'
+                : data?.status === 'SUBMITTED'
                 ? 'KYC Submitted — Awaiting Verification'
                 : 'Submit KYC Request'
               }
             </button>
+          )}
+
+          {/* eKYC link — shown when NSE sends back a fresh eKYC URL */}
+          {data?.ekycLink && data.status !== 'VERIFIED' && (
+            <a
+              href={data.ekycLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition"
+            >
+              <ExternalLink size={18} />
+              Complete eKYC on NSE Portal
+            </a>
           )}
         </div>
 

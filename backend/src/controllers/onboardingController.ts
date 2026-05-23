@@ -36,8 +36,21 @@ function badRequest(res: Response, errors: z.ZodIssue[]) {
 // ─── GET /onboarding/status ───────────────────────────────
 export async function onboardingStatus(req: AuthRequest, res: Response) {
   try {
-    const data = await getOnboardingStatus(req.user!.userId);
-    res.json({ success: true, data });
+    const { steps, nextStep } = await getOnboardingStatus(req.user!.userId);
+    // Flatten nested steps to plain booleans so the frontend can use them directly
+    res.json({
+      success: true,
+      data: {
+        registration:   steps.registration.done,
+        profileCreated: steps.profileCreated.done,
+        addressAdded:   steps.addressAdded.done,
+        nomineeAdded:   steps.nomineeAdded.done,
+        bankAdded:      steps.bankAdded.done,
+        kycVerified:    steps.kycVerified.done,
+        nseOnboarded:   steps.nseOnboarded.done,
+        nextStep,
+      },
+    });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });
   }
