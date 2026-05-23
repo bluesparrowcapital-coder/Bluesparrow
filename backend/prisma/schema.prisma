@@ -260,6 +260,8 @@ model Nominee {
   percentage   Int      @default(100)  // allocation % (multiple nominees sum = 100)
   guardianName String?  // if nominee is minor
   guardianRel  String?
+  docType      String?  // AADHAAR / PAN / PASSPORT / VOTER_ID / DRIVING_LICENSE
+  docNumber    String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

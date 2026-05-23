@@ -11,6 +11,14 @@ const RELATIONSHIPS = [
   'GRANDSON', 'GRANDDAUGHTER', 'OTHER',
 ]
 
+const DOC_TYPES = [
+  { value: 'AADHAAR',          label: 'Aadhaar' },
+  { value: 'PAN',              label: 'PAN' },
+  { value: 'PASSPORT',         label: 'Passport' },
+  { value: 'VOTER_ID',         label: 'Voter ID' },
+  { value: 'DRIVING_LICENSE',  label: 'Driving License' },
+]
+
 interface NomineeForm {
   fullName:     string
   relationship: string
@@ -18,10 +26,13 @@ interface NomineeForm {
   percentage:   number
   guardianName: string
   guardianRel:  string
+  docType:      string
+  docNumber:    string
 }
 
 const emptyNominee = (): NomineeForm => ({
-  fullName: '', relationship: '', dob: '', percentage: 100, guardianName: '', guardianRel: '',
+  fullName: '', relationship: '', dob: '', percentage: 100,
+  guardianName: '', guardianRel: '', docType: '', docNumber: '',
 })
 
 function isMinor(dob: string): boolean {
@@ -107,6 +118,8 @@ export default function NomineePage() {
         percentage:   Number(n.percentage),
         guardianName: n.guardianName.trim() || undefined,
         guardianRel:  n.guardianRel.trim() || undefined,
+        docType:      n.docType || undefined,
+        docNumber:    n.docNumber.trim() || undefined,
       }))
       await onboardingService.saveNominees(payload)
       draft.clear()
@@ -228,6 +241,32 @@ export default function NomineePage() {
             {n.dob && isMinor(n.dob) && (
               <p className="text-yellow-600 text-xs mt-1">⚠️ Minor — Guardian details required</p>
             )}
+          </div>
+
+          {/* Document */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
+              <select
+                className="input-field"
+                value={n.docType}
+                onChange={(e) => setNominee(i, 'docType', e.target.value)}
+              >
+                <option value="">Select</option>
+                {DOC_TYPES.map((d) => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Document Number</label>
+              <input
+                className="input-field"
+                placeholder="e.g. 1234 5678 9012"
+                value={n.docNumber}
+                onChange={(e) => setNominee(i, 'docNumber', e.target.value.toUpperCase())}
+              />
+            </div>
           </div>
 
           {/* Guardian fields (only if minor) */}

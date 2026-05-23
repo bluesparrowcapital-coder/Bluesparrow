@@ -65,6 +65,8 @@ export const nomineeSchema = z.object({
         percentage:   z.number().int().min(1).max(100),
         guardianName: z.string().min(2).max(100).optional(),
         guardianRel:  z.string().max(50).optional(),
+        docType:      z.enum(['AADHAAR', 'PAN', 'PASSPORT', 'VOTER_ID', 'DRIVING_LICENSE']).optional(),
+        docNumber:    z.string().max(50).optional(),
       })
     )
     .min(1, 'At least one nominee required')

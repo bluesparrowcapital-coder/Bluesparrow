@@ -87,6 +87,8 @@ export async function saveNominees(userId: string, data: NomineeInput) {
       percentage:   n.percentage,
       guardianName: n.guardianName,
       guardianRel:  n.guardianRel,
+      docType:      n.docType,
+      docNumber:    n.docNumber,
     })),
   });
 
