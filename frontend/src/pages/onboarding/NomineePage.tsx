@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { onboardingService } from '../../services/onboardingService'
 import { useDraft } from '../../hooks/useDraft'
+import DateInput from '../../components/ui/DateInput'
 
 const RELATIONSHIPS = [
   'SPOUSE', 'SON', 'DAUGHTER', 'FATHER', 'MOTHER',
@@ -219,12 +220,10 @@ export default function NomineePage() {
           {/* DOB */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-            <input
-              type="date"
-              className="input-field"
+            <DateInput
               value={n.dob}
+              onChange={(iso) => setNominee(i, 'dob', iso)}
               max={new Date().toISOString().split('T')[0]}
-              onChange={(e) => setNominee(i, 'dob', e.target.value)}
             />
             {n.dob && isMinor(n.dob) && (
               <p className="text-yellow-600 text-xs mt-1">⚠️ Minor — Guardian details required</p>

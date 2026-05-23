@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 import { onboardingService } from '../../services/onboardingService'
 import { useDraft } from '../../hooks/useDraft'
+import DateInput from '../../components/ui/DateInput'
 
 const schema = z.object({
   panNumber:          z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN (e.g. ABCDE1234F)'),
@@ -132,7 +133,11 @@ export default function CreateProfilePage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-              <input {...register('dob')} type="date" className="input-field" max={new Date().toISOString().split('T')[0]} />
+              <DateInput
+                value={watch('dob') ?? ''}
+                onChange={(iso) => setValue('dob', iso, { shouldValidate: true })}
+                max={new Date().toISOString().split('T')[0]}
+              />
               {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob.message}</p>}
             </div>
             <div>
