@@ -14,6 +14,9 @@ dotenv.config();
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust Render/Heroku reverse proxy so express-rate-limit can read the real IP
+app.set('trust proxy', 1);
+
 // ─── Security Middleware ───────────────────────────────────
 app.use(helmet());
 app.use(cors({
