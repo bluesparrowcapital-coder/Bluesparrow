@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { checkAndAutoSubmitToNse } from './clientProfileService';
 
 const prisma = new PrismaClient();
 
@@ -89,6 +90,11 @@ export async function checkKycFromKra(userId: string) {
       },
     });
     logger.info(`KYC status updated for user ${userId}: ${oldStatus} → ${newStatus}`);
+  }
+
+  // Auto-submit to NSE MF now that KYC is verified (if all other steps done)
+  if (mockResult.isKycDone) {
+    setImmediate(() => checkAndAutoSubmitToNse(userId));
   }
 
   return {

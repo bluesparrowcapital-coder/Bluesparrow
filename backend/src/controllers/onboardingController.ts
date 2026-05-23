@@ -111,6 +111,29 @@ export async function nseSubmit(req: AuthRequest, res: Response) {
   }
 }
 
+// ─── GET /onboarding/nse-status ──────────────────────────
+export async function nseStatusHandler(req: AuthRequest, res: Response) {
+  try {
+    const profile = await prisma.clientProfile.findUnique({
+      where:  { userId: req.user!.userId },
+      select: { nseOnboardingStatus: true, nseClientCode: true, nseOnboardedAt: true },
+    });
+    if (!profile) {
+      return res.json({ success: true, data: { status: 'PENDING', clientCode: null, onboardedAt: null } });
+    }
+    res.json({
+      success: true,
+      data: {
+        status:      profile.nseOnboardingStatus,
+        clientCode:  profile.nseClientCode,
+        onboardedAt: profile.nseOnboardedAt,
+      },
+    });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+}
+
 // ─── GET /kyc/status ─────────────────────────────────────
 export async function kycStatus(req: AuthRequest, res: Response) {
   try {

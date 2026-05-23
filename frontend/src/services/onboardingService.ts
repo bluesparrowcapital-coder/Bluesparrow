@@ -26,6 +26,13 @@ export const onboardingService = {
 
   submitToNse: () =>
     api.post('/onboarding/nse-submit').then((r) => r.data),
+
+  getNseStatus: () =>
+    api.get('/onboarding/nse-status').then((r) => r.data.data as {
+      status: 'PENDING' | 'SUBMITTED' | 'REGISTERED' | 'FAILED';
+      clientCode: string | null;
+      onboardedAt: string | null;
+    }),
 };
 
 // ─── KYC ──────────────────────────────────────────────────

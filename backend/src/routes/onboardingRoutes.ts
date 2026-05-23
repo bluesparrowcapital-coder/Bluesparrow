@@ -9,6 +9,7 @@ import {
   fetchAddresses,
   saveNomineesHandler,
   nseSubmit,
+  nseStatusHandler,
   kycStatus,
   kycCheckKra,
   kycSubmit,
@@ -28,6 +29,7 @@ router.post('/address',      saveAddressHandler);  // Step 3: Save address (perm
 router.get( '/address',      fetchAddresses);      // Get saved addresses
 router.post('/nominees',     saveNomineesHandler); // Step 4: Save nominees
 router.post('/nse-submit',   nseSubmit);           // Submit to NSE MF
+router.get( '/nse-status',   nseStatusHandler);    // Get NSE MF registration status
 
 // ─── KYC routes ──────────────────────────────────────────
 router.get( '/kyc/status',   kycStatus);           // Get current KYC status + logs

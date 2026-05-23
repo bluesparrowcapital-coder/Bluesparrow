@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import type { ClientProfileInput, AddressInput, NomineeInput } from '../utils/onboardingValidators';
+import { nseMfClient } from '../integrations/nsemf/NseMfClient';
 
 const prisma = new PrismaClient();
 
@@ -94,27 +95,124 @@ export async function saveNominees(userId: string, data: NomineeInput) {
 
 // ─── NSE MF ONBOARDING ────────────────────────────────────
 
+/**
+ * Assemble all onboarding data and submit to NSE NMF II.
+ * Called explicitly (manual submit button) OR auto-triggered
+ * by checkAndAutoSubmitToNse() once all required steps complete.
+ */
 export async function submitNseMfOnboarding(userId: string) {
-  const profile  = await prisma.clientProfile.findUnique({ where: { userId } });
+  const user      = await prisma.user.findUnique({ where: { id: userId }, select: { kycStatus: true } });
+  const profile   = await prisma.clientProfile.findUnique({ where: { userId } });
   const addresses = await prisma.address.findMany({ where: { userId } });
-  const banks    = await prisma.bankAccount.findMany({ where: { userId, isVerified: true } });
+  const banks     = await prisma.bankAccount.findMany({
+    where:   { userId },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+  });
+  const nominees = await prisma.nominee.findMany({ where: { userId, isActive: true } });
 
-  if (!profile)                  throw new Error('Client profile not found. Complete profile first');
-  if (addresses.length === 0)    throw new Error('Address not found. Add address first');
-  if (banks.length === 0)        throw new Error('No verified bank account. Add bank account first');
+  if (!profile)               throw new Error('Client profile not found. Complete profile first.');
+  if (addresses.length === 0) throw new Error('Address not found. Add address first.');
+  if (banks.length === 0)     throw new Error('No bank account found. Add a bank account first.');
 
-  // Update NSE onboarding status to SUBMITTED
+  // Skip if already registered
+  if (profile.nseOnboardingStatus === 'REGISTERED') {
+    return { status: 'REGISTERED', clientCode: profile.nseClientCode, message: 'Already registered on NSE MF.' };
+  }
+
+  // Mark as SUBMITTED while the API call runs
   await prisma.clientProfile.update({
     where: { userId },
     data:  { nseOnboardingStatus: 'SUBMITTED' },
   });
 
-  // TODO: Actual NSE MF API integration (Phase 2)
-  // const nseResponse = await NseMfClient.registerClient({ profile, addresses, banks });
-  // await prisma.clientProfile.update({ where: { userId }, data: { nseClientCode: nseResponse.clientCode, nseOnboardingStatus: 'REGISTERED', nseOnboardedAt: new Date(), nseRawResponse: nseResponse } });
+  const permanentAddr = addresses.find((a) => a.type === 'PERMANENT') ?? addresses[0];
+  const bank          = banks[0];
 
-  logger.info(`NSE MF onboarding submitted for user: ${userId}`);
-  return { status: 'SUBMITTED', message: 'NSE MF registration submitted. Client code will be generated shortly.' };
+  const payload = {
+    panNumber:          profile.panNumber,
+    fullNameAsPan:      profile.fullNameAsPan,
+    dob:                profile.dob,
+    gender:             profile.gender,
+    fatherOrSpouseName: profile.fatherOrSpouseName,
+    occupation:         profile.occupation,
+    taxStatus:          profile.taxStatus,
+    email:              profile.email,
+    mobile:             profile.mobile,
+    isPep:              profile.isPep,
+    kycStatus:          user?.kycStatus === 'VERIFIED' ? ('Y' as const) : ('N' as const),
+    addressLine1:       permanentAddr.addressLine1,
+    addressLine2:       permanentAddr.addressLine2,
+    city:               permanentAddr.city,
+    state:              permanentAddr.state,
+    pincode:            permanentAddr.pincode,
+    bankIfsc:           bank.ifscCode,
+    bankAccountNumber:  bank.accountNumber,
+    bankName:           bank.bankName,
+    accountHolder:      bank.accountHolder,
+    nominees: nominees.map((n) => ({
+      fullName:     n.fullName,
+      relationship: n.relationship,
+      percentage:   n.percentage,
+      dob:          n.dob,
+      guardianName: n.guardianName,
+    })),
+  };
+
+  const clientCode = nseMfClient.generateClientCode();
+  const result     = await nseMfClient.registerClient(payload, clientCode);
+
+  if (result.success) {
+    await prisma.clientProfile.update({
+      where: { userId },
+      data:  {
+        nseClientCode:       result.clientCode ?? clientCode,
+        nseOnboardingStatus: 'REGISTERED',
+        nseOnboardedAt:      new Date(),
+        nseRawResponse:      result.rawResponse as any,
+      },
+    });
+    await advanceOnboardingStep(userId, 'NSE_ONBOARDED');
+    logger.info(`NSE MF registered for user ${userId} — clientCode: ${result.clientCode}`);
+    return { status: 'REGISTERED', clientCode: result.clientCode, message: result.message };
+  } else {
+    // Revert to FAILED so user/system can retry
+    await prisma.clientProfile.update({
+      where: { userId },
+      data:  { nseOnboardingStatus: 'FAILED', nseRawResponse: result.rawResponse as any },
+    });
+    logger.error(`NSE MF registration failed for user ${userId}: ${result.message}`);
+    throw new Error(`NSE registration failed: ${result.message}`);
+  }
+}
+
+/**
+ * Auto-trigger NSE submission once ALL required steps are complete.
+ * Call this from kycService (after KYC verified) and bankService (after bank added).
+ */
+export async function checkAndAutoSubmitToNse(userId: string): Promise<void> {
+  try {
+    const user    = await prisma.user.findUnique({ where: { id: userId }, select: { kycStatus: true } });
+    const profile = await prisma.clientProfile.findUnique({
+      where:  { userId },
+      select: { nseOnboardingStatus: true },
+    });
+
+    // Already submitted/registered — nothing to do
+    if (!profile || profile.nseOnboardingStatus === 'REGISTERED' || profile.nseOnboardingStatus === 'SUBMITTED') return;
+
+    // All required steps must be complete
+    if (user?.kycStatus !== 'VERIFIED') return;
+
+    const addrCount = await prisma.address.count({ where: { userId } });
+    const bankCount = await prisma.bankAccount.count({ where: { userId } });
+    if (addrCount === 0 || bankCount === 0) return;
+
+    logger.info(`All steps complete for user ${userId} — auto-submitting to NSE MF`);
+    await submitNseMfOnboarding(userId);
+  } catch (err: any) {
+    // Log but do not crash the calling flow
+    logger.error(`checkAndAutoSubmitToNse failed for user ${userId}: ${err.message}`);
+  }
 }
 
 // ─── ONBOARDING STATUS ────────────────────────────────────

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import type { BankAccountInput } from '../utils/bankValidators';
+import { checkAndAutoSubmitToNse } from './clientProfileService';
 
 const prisma = new PrismaClient();
 
@@ -20,7 +21,7 @@ export async function addBankAccount(userId: string, data: BankAccountInput) {
   // If first account, make it default automatically
   const makeDefault = data.isDefault || existingCount === 0;
 
-  return prisma.bankAccount.create({
+  const account = await prisma.bankAccount.create({
     data: {
       userId,
       accountNumber: data.accountNumber,
@@ -31,6 +32,11 @@ export async function addBankAccount(userId: string, data: BankAccountInput) {
       isVerified:    false,   // Phase 2: penny drop / NACH verification
     },
   });
+
+  // Auto-submit to NSE MF now that a bank account exists (if all other steps done)
+  setImmediate(() => checkAndAutoSubmitToNse(userId));
+
+  return account;
 }
 
 // ─── Get All Bank Accounts ────────────────────────────────
