@@ -148,13 +148,28 @@ class NseMfClient {
   private readonly isSandbox:  boolean;
 
   constructor() {
+    const requestedSandbox = process.env.NSE_SANDBOX !== 'false';
+    const hasConfiguredProdCreds = Boolean(
+      process.env.NSE_MEMBER_ID
+      && process.env.NSE_PASSWORD
+      && process.env.NSE_LICENSE_KEY,
+    );
+    const looksLikeSandboxCreds = (process.env.NSE_PASSWORD ?? '').startsWith('SANDBOX')
+      || process.env.NSE_LICENSE_KEY === 'SANDBOXKEY123456';
+
     // In sandbox mode (default) these values are never sent to a real API,
     // so dummy fallbacks are fine. Replace with real credentials when NSE_SANDBOX=false.
     this.memberId   = process.env.NSE_MEMBER_ID   ?? 'SANDBOX_MEMBER';
     this.userId     = process.env.NSE_USER_ID     ?? process.env.NSE_MEMBER_ID ?? 'SANDBOX_USER';
     this.password   = process.env.NSE_PASSWORD    ?? 'SANDBOX_PASS';
     this.licenseKey = process.env.NSE_LICENSE_KEY ?? 'SANDBOXKEY123456';  // 16-char placeholder
-    this.isSandbox  = process.env.NSE_SANDBOX !== 'false';  // true by default until real creds arrive
+    this.isSandbox  = requestedSandbox || !hasConfiguredProdCreds || looksLikeSandboxCreds;
+
+    if (!requestedSandbox && this.isSandbox) {
+      logger.warn('NSE_SANDBOX=false but production credentials are missing or still using sandbox placeholders; forcing sandbox mode.');
+    } else {
+      logger.info(`NSE MF client initialized in ${this.isSandbox ? 'SANDBOX' : 'PRODUCTION'} mode`);
+    }
 
     const baseURL = this.isSandbox
       ? (process.env.NSE_SANDBOX_URL ?? 'https://nseinvestuat.nseindia.com')
