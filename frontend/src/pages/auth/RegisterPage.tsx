@@ -34,7 +34,7 @@ export default function RegisterPage() {
         phone:     data.phone,
         panNumber: data.panNumber ? data.panNumber.toUpperCase() : undefined,
       })
-      dispatch(setUser({ userId: res.data.userId, phone: data.phone, fullName: data.fullName }))
+      dispatch(setUser({ userId: res.data.id, phone: data.phone, fullName: data.fullName }))
       toast.success('Account created! Now set your PIN.')
       navigate('/auth/set-pin')
     } catch (err: unknown) {

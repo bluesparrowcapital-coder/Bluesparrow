@@ -65,7 +65,15 @@ export async function registerUser(data: RegisterInput) {
 
 // ─── PIN SETUP ────────────────────────────────────────────
 
-export async function setPin(userId: string, pin: string) {
+export async function setPin(userId: string, pin: string, deviceInfo?: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, fullName: true, email: true, phone: true, role: true, kycStatus: true, pinHash: true, isActive: true },
+  });
+
+  if (!user || !user.isActive) throw new Error('User not found');
+  if (user.pinHash) throw new Error('PIN already set. Use PIN login instead');
+
   const pinHash = await bcrypt.hash(pin, SALT_ROUNDS);
 
   await prisma.user.update({
@@ -74,6 +82,7 @@ export async function setPin(userId: string, pin: string) {
   });
 
   logger.info(`PIN set for user: ${userId}`);
+  return generateTokens(user, deviceInfo);
 }
 
 // ─── PIN LOGIN ────────────────────────────────────────────

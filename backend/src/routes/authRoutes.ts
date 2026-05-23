@@ -39,7 +39,7 @@ const registerLimiter = rateLimit({
 router.post('/register', registerLimiter, register);
 
 // PIN
-router.post('/pin/set',   authenticate, setPinHandler);
+router.post('/pin/set',   setPinHandler);
 router.post('/pin/login', loginLimiter,  pinLogin);
 
 // Biometric / Fingerprint (WebAuthn)

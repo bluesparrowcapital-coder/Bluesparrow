@@ -29,10 +29,10 @@ export default function SetPinPage() {
     if (confirm !== pin) return toast.error('PINs do not match')
     setSaving(true)
     try {
-      const res = await authService.setPin({ pin, confirmPin: confirm })
+      const res = await authService.setPin({ userId: user!.userId, pin, confirmPin: confirm })
       // setPin returns tokens
-      if (res.data?.accessToken) {
-        dispatch(setTokens({ accessToken: res.data.accessToken, refreshToken: res.data.refreshToken }))
+      if (res?.accessToken) {
+        dispatch(setTokens({ accessToken: res.accessToken, refreshToken: res.refreshToken }))
       }
       dispatch(updateOnboardingStep('REGISTERED'))
       setStep('biometric')

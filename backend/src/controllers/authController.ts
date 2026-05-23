@@ -43,13 +43,14 @@ export async function register(req: Request, res: Response) {
 }
 
 // ─── POST /auth/pin/set ───────────────────────────────────
-export async function setPinHandler(req: AuthRequest, res: Response) {
+export async function setPinHandler(req: Request, res: Response) {
   const parsed = setPinSchema.safeParse(req.body);
   if (!parsed.success) return badRequest(res, parsed.error.issues);
 
   try {
-    await setPin(req.user!.userId, parsed.data.pin);
-    res.json({ success: true, message: 'PIN set successfully' });
+    const deviceInfo = req.headers['user-agent'];
+    const result = await setPin(parsed.data.userId, parsed.data.pin, deviceInfo);
+    res.json({ success: true, message: 'PIN set successfully', ...result });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });
   }

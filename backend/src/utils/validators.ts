@@ -15,6 +15,7 @@ export const registerSchema = z.object({
 // ─── PIN ──────────────────────────────────────────────────
 
 export const setPinSchema = z.object({
+  userId: z.string().uuid('Invalid user ID'),
   pin: z
     .string()
     .length(4, 'PIN must be exactly 4 digits')

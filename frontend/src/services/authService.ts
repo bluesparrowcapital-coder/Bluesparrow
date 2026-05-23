@@ -4,7 +4,7 @@ export const authService = {
   register: (data: { fullName: string; email: string; phone: string; panNumber?: string }) =>
     api.post('/auth/register', data).then((r) => r.data),
 
-  setPin: (data: { pin: string; confirmPin: string }) =>
+  setPin: (data: { userId: string; pin: string; confirmPin: string }) =>
     api.post('/auth/pin/set', data).then((r) => r.data),
 
   loginWithPin: (data: { phone: string; pin: string }) =>
