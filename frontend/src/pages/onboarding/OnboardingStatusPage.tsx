@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, Circle, ChevronRight, Loader2, BadgeCheck, AlertCircle, Clock } from 'lucide-react'
+import { CheckCircle2, Circle, ChevronRight, Loader2, BadgeCheck, AlertCircle, Clock, Mail } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { onboardingService } from '../../services/onboardingService'
@@ -186,6 +186,49 @@ export default function OnboardingStatusPage() {
             )
           })}
         </div>
+
+        {/* NSE Email Activation Instruction Banner */}
+        {allDone && nseStatus?.clientCode && (
+          <div className="card mt-4 border-2 border-amber-300 bg-amber-50">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Mail size={20} className="text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-amber-500 uppercase tracking-wide mb-0.5">Action Required</p>
+                <h3 className="font-bold text-amber-900 text-base leading-tight">
+                  Approve NSE Activation Email
+                </h3>
+                <p className="text-amber-700 text-sm mt-1.5">
+                  Your UCC{' '}
+                  <span className="font-mono font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded">
+                    {nseStatus.clientCode}
+                  </span>{' '}
+                  has been created. NSE has sent an activation email to your registered email address.
+                  Please complete the steps below to activate your account.
+                </p>
+                <ol className="mt-3 space-y-2">
+                  {[
+                    'Check your inbox for an email from NSE MF',
+                    'Open the email and click the activation / approval link',
+                    'Review and approve the terms on the NSE portal',
+                    'Your account will be fully activated for investing',
+                  ].map((step, idx) => (
+                    <li key={idx} className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <span className="text-sm text-amber-800">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-xs text-amber-600 mt-3 border-t border-amber-200 pt-2">
+                  💡 Didn't receive the email? Check your spam/junk folder or contact support.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {allDone && (
           <button
