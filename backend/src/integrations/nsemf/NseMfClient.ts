@@ -148,11 +148,13 @@ class NseMfClient {
   private readonly isSandbox:  boolean;
 
   constructor() {
-    this.memberId   = process.env.NSE_MEMBER_ID   ?? '';
-    this.userId     = process.env.NSE_USER_ID     ?? process.env.NSE_MEMBER_ID ?? '';
-    this.password   = process.env.NSE_PASSWORD    ?? '';
-    this.licenseKey = process.env.NSE_LICENSE_KEY ?? '';
-    this.isSandbox  = process.env.NSE_SANDBOX     !== 'false';
+    // In sandbox mode (default) these values are never sent to a real API,
+    // so dummy fallbacks are fine. Replace with real credentials when NSE_SANDBOX=false.
+    this.memberId   = process.env.NSE_MEMBER_ID   ?? 'SANDBOX_MEMBER';
+    this.userId     = process.env.NSE_USER_ID     ?? process.env.NSE_MEMBER_ID ?? 'SANDBOX_USER';
+    this.password   = process.env.NSE_PASSWORD    ?? 'SANDBOX_PASS';
+    this.licenseKey = process.env.NSE_LICENSE_KEY ?? 'SANDBOXKEY123456';  // 16-char placeholder
+    this.isSandbox  = process.env.NSE_SANDBOX !== 'false';  // true by default until real creds arrive
 
     const baseURL = this.isSandbox
       ? (process.env.NSE_SANDBOX_URL ?? 'https://nseinvestuat.nseindia.com')
