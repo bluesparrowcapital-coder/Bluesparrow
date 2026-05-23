@@ -159,6 +159,8 @@ export async function submitNseMfOnboarding(userId: string) {
       percentage:   n.percentage,
       dob:          n.dob,
       guardianName: n.guardianName,
+      docType:      n.docType  ?? undefined,
+      docNumber:    n.docNumber ?? undefined,
     })),
   };
 
