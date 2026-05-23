@@ -15,6 +15,14 @@ import {
 
 const router = Router();
 
+function getClientIp(req: { headers: Record<string, unknown>; ip?: string }) {
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+    return forwardedFor.split(',')[0].trim();
+  }
+  return req.ip ?? 'unknown';
+}
+
 // ─── Rate limiters ─────────────────────────────────────────
 
 // Login: 10 attempts per 15 minutes
@@ -24,6 +32,8 @@ const loginLimiter = rateLimit({
   message:  { success: false, message: 'Too many login attempts. Try again after 15 minutes' },
   standardHeaders: true,
   legacyHeaders:   false,
+  keyGenerator:    getClientIp,
+  validate:        { xForwardedForHeader: false },
 });
 
 // Register: 5 attempts per hour
@@ -31,6 +41,10 @@ const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max:      5,
   message:  { success: false, message: 'Too many registration attempts. Try again after an hour' },
+  standardHeaders: true,
+  legacyHeaders:   false,
+  keyGenerator:    getClientIp,
+  validate:        { xForwardedForHeader: false },
 });
 
 // ─── Auth Routes ───────────────────────────────────────────
