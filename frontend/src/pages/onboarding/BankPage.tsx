@@ -10,6 +10,7 @@ interface BankAccount {
   ifscCode:      string
   bankName:      string
   accountHolder: string
+  accountType:   string
   isDefault:     boolean
   isVerified:    boolean
   createdAt:     string
@@ -20,9 +21,10 @@ interface FormData {
   ifscCode:      string
   bankName:      string
   accountHolder: string
+  accountType:   string
 }
 
-const emptyForm: FormData = { accountNumber: '', ifscCode: '', bankName: '', accountHolder: '' }
+const emptyForm: FormData = { accountNumber: '', ifscCode: '', bankName: '', accountHolder: '', accountType: 'SB' }
 
 // Mask account number for display
 function maskAccount(num: string) {
@@ -151,6 +153,7 @@ export default function BankPage() {
                   <p className="font-semibold text-gray-900">{a.bankName}</p>
                   <p className="text-sm text-gray-600">A/C: {maskAccount(a.accountNumber)}</p>
                   <p className="text-xs text-gray-500">IFSC: {a.ifscCode} · {a.accountHolder}</p>
+                  <p className="text-xs text-gray-500">Type: {a.accountType === 'SB' ? 'Savings' : a.accountType === 'CA' ? 'Current' : a.accountType ?? 'Savings'}</p>
                   <div className="flex items-center gap-2 mt-1">
                     {a.isDefault && (
                       <span className="text-xs bg-blue-100 text-sparrow-blue px-2 py-0.5 rounded-full font-medium">
@@ -260,6 +263,22 @@ export default function BankPage() {
               onChange={(e) => setField('accountHolder', e.target.value)}
             />
             {errors.accountHolder && <p className="text-red-500 text-xs mt-1">{errors.accountHolder}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Account Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              className="input-field"
+              value={form.accountType}
+              onChange={(e) => setField('accountType', e.target.value)}
+            >
+              <option value="SB">Savings Account</option>
+              <option value="CA">Current Account</option>
+              <option value="NRE">NRE Account</option>
+              <option value="NRO">NRO Account</option>
+            </select>
           </div>
 
           <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">

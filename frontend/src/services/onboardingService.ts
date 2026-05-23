@@ -59,6 +59,7 @@ export const bankService = {
     ifscCode:      string
     bankName:      string
     accountHolder: string
+    accountType?:  string
     isDefault?:    boolean
   }) => api.post('/bank', data).then((r) => r.data),
 

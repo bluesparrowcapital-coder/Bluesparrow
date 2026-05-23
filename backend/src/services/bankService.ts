@@ -28,6 +28,7 @@ export async function addBankAccount(userId: string, data: BankAccountInput) {
       ifscCode:      data.ifscCode.toUpperCase(),
       bankName:      data.bankName,
       accountHolder: data.accountHolder,
+      accountType:   data.accountType ?? 'SB',
       isDefault:     makeDefault,
       isVerified:    false,   // Phase 2: penny drop / NACH verification
     },
@@ -51,6 +52,7 @@ export async function getBankAccounts(userId: string) {
       ifscCode:      true,
       bankName:      true,
       accountHolder: true,
+      accountType:   true,
       isDefault:     true,
       isVerified:    true,
       createdAt:     true,

@@ -50,6 +50,17 @@ const RELATIONSHIP_CODE: Record<string, string> = {
   OTHER:       '99',
 };
 
+const INCOME_CODE: Record<string, string> = {
+  BELOW_1L:     '31',   // Below Rs. 1 Lakh
+  '1L_TO_5L':   '32',   // 1–5 Lakh
+  '5L_TO_10L':  '33',   // 5–10 Lakh
+  '10L_TO_25L': '34',   // 10–25 Lakh
+  '25L_TO_50L': '35',   // 25–50 Lakh
+  '50L_TO_1CR': '36',   // 50 Lakh – 1 Crore
+  ABOVE_1CR:    '37',   // Above 1 Crore
+  ABOVE_25L:    '34',   // legacy enum value fallback → 10-25L
+};
+
 const STATE_CODE: Record<string, string> = {
   'ANDHRA PRADESH':    'AP', 'ARUNACHAL PRADESH': 'AR', 'ASSAM':       'AS',
   'BIHAR':             'BR', 'CHHATTISGARH':      'CG', 'GOA':         'GA',
@@ -93,6 +104,10 @@ export interface NseRegistrationPayload {
   bankAccountNumber:  string;
   bankName:           string;
   accountHolder:      string;
+  accountType?:       string;   // SB=Savings, CA=Current, NRE, NRO
+
+  // NSE required financial info
+  annualIncome?:      string;   // enum: BELOW_1L | 1L_TO_5L | ... | ABOVE_1CR
 
   // Nominees (up to 3, optional)
   nominees?: Array<{
@@ -210,7 +225,10 @@ class NseMfClient {
       BankIFSC:        data.bankIfsc.toUpperCase(),
       BankCode:        data.bankIfsc.substring(0, 4).toUpperCase(),
       BankAccountNo:   data.bankAccountNumber,
-      AccountType:     'SB',    // Savings — default; extend if needed
+      AccountType:     data.accountType ?? 'SB',
+
+      // NSE income slab
+      IncomeCode:      INCOME_CODE[data.annualIncome ?? ''] ?? '31',
 
       // Nominees (up to 3)
       NomineeName1:     nom[0]?.fullName      ?? '',

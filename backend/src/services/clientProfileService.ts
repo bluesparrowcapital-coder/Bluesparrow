@@ -149,6 +149,8 @@ export async function submitNseMfOnboarding(userId: string) {
     bankAccountNumber:  bank.accountNumber,
     bankName:           bank.bankName,
     accountHolder:      bank.accountHolder,
+    accountType:        (bank as any).accountType ?? 'SB',
+    annualIncome:       profile.annualIncome ?? 'BELOW_1L',
     nominees: nominees.map((n) => ({
       fullName:     n.fullName,
       relationship: n.relationship,

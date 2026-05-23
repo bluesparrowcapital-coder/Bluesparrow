@@ -28,7 +28,9 @@ export const clientProfileSchema = z.object({
   ]),
   taxStatus: z.enum(['INDIVIDUAL', 'NRI', 'PIO', 'HUF', 'COMPANY', 'PARTNERSHIP']).default('INDIVIDUAL'),
   annualIncome: z.enum([
-    'BELOW_1L', '1L_TO_5L', '5L_TO_10L', '10L_TO_25L', 'ABOVE_25L',
+    'BELOW_1L', '1L_TO_5L', '5L_TO_10L', '10L_TO_25L',
+    '25L_TO_50L', '50L_TO_1CR', 'ABOVE_1CR',
+    'ABOVE_25L',  // legacy value — kept for backward compatibility
   ]).optional(),
   isPep: z.boolean().default(false),
   isRelatedToPep: z.boolean().default(false),

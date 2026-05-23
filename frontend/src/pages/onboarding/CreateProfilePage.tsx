@@ -18,8 +18,12 @@ const schema = z.object({
   }, 'Must be 18 years or older'),
   gender:             z.enum(['M', 'F', 'T'], { errorMap: () => ({ message: 'Select gender' }) }),
   fatherOrSpouseName: z.string().min(2, 'Required'),
+  motherName:         z.string().optional(),
   occupation:         z.enum(['SERVICE', 'PROFESSIONAL', 'BUSINESS', 'AGRICULTURIST', 'RETIRED', 'HOUSEWIFE', 'STUDENT', 'OTHER']),
   taxStatus:          z.enum(['INDIVIDUAL', 'HUF', 'NRI', 'PIO']),
+  annualIncome:       z.enum(['BELOW_1L', '1L_TO_5L', '5L_TO_10L', '10L_TO_25L', '25L_TO_50L', '50L_TO_1CR', 'ABOVE_1CR'], {
+    errorMap: () => ({ message: 'Select annual income' }),
+  }),
   isPep:              z.boolean(),
 })
 type FormData = z.infer<typeof schema>
@@ -34,7 +38,7 @@ export default function CreateProfilePage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { gender: 'M', occupation: 'SERVICE', taxStatus: 'INDIVIDUAL', isPep: false },
+    defaultValues: { gender: 'M', occupation: 'SERVICE', taxStatus: 'INDIVIDUAL', annualIncome: 'BELOW_1L', isPep: false },
   })
 
   // ── Load: server profile → localStorage draft → prefill ──
@@ -156,6 +160,11 @@ export default function CreateProfilePage() {
             {errors.fatherOrSpouseName && <p className="text-red-500 text-xs mt-1">{errors.fatherOrSpouseName.message}</p>}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Mother's Name <span className="text-slate-400 font-normal">(optional)</span></label>
+            <input {...register('motherName')} placeholder="Mother's full name" className="input-field" />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Occupation</label>
@@ -179,6 +188,20 @@ export default function CreateProfilePage() {
                 <option value="PIO">PIO</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Annual Income</label>
+            <select {...register('annualIncome')} className="input-field">
+              <option value="BELOW_1L">Below ₹1 Lakh</option>
+              <option value="1L_TO_5L">₹1 – 5 Lakh</option>
+              <option value="5L_TO_10L">₹5 – 10 Lakh</option>
+              <option value="10L_TO_25L">₹10 – 25 Lakh</option>
+              <option value="25L_TO_50L">₹25 – 50 Lakh</option>
+              <option value="50L_TO_1CR">₹50 Lakh – 1 Crore</option>
+              <option value="ABOVE_1CR">Above ₹1 Crore</option>
+            </select>
+            {errors.annualIncome && <p className="text-red-500 text-xs mt-1">{errors.annualIncome.message}</p>}
           </div>
 
           <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">

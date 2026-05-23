@@ -354,6 +354,7 @@ model BankAccount {
   ifscCode      String
   bankName      String
   accountHolder String
+  accountType   String  @default("SB")   // SB=Savings, CA=Current, NRE=NRE, NRO=NRO
   isDefault     Boolean @default(false)
   isVerified    Boolean @default(false)
   createdAt     DateTime @default(now())
