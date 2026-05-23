@@ -35,9 +35,9 @@ export function useBiometric() {
   ): Promise<{ accessToken: string; refreshToken: string } | null> {
     setLoading(true)
     try {
-      const options = await authService.getBiometricAuthOptions(phone)
-      const credential = await startAuthentication(options)
-      const result = await authService.verifyBiometric(phone, credential)
+      const { options, userId } = await authService.getBiometricAuthOptions(phone)
+      const credential = await startAuthentication(options as Parameters<typeof startAuthentication>[0])
+      const result = await authService.verifyBiometric(userId, credential)
       return result.data
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Fingerprint login failed'

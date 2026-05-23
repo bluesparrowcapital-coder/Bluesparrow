@@ -21,11 +21,11 @@ export const authService = {
     api.get('/auth/biometric/register-options').then((r) => r.data.data),
 
   registerBiometric: (credential: unknown) =>
-    api.post('/auth/biometric/register', { credential }).then((r) => r.data),
+    api.post('/auth/biometric/register', { response: credential }).then((r) => r.data),
 
   getBiometricAuthOptions: (phone: string) =>
-    api.post('/auth/biometric/auth-options', { phone }).then((r) => r.data.data),
+    api.post('/auth/biometric/auth-options', { phone }).then((r) => r.data.data as { options: unknown; userId: string }),
 
-  verifyBiometric: (phone: string, credential: unknown) =>
-    api.post('/auth/biometric/verify', { phone, credential }).then((r) => r.data),
+  verifyBiometric: (userId: string, credential: unknown) =>
+    api.post('/auth/biometric/verify', { userId, response: credential }).then((r) => r.data),
 }
