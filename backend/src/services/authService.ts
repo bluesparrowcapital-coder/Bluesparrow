@@ -189,14 +189,18 @@ export async function verifyBiometricRegistration(
 
   await deleteChallenge(userId);
 
-  const { credential } = verification.registrationInfo;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const regInfo: any = verification.registrationInfo;
+  const credId: string       = regInfo.credential?.id      ?? regInfo.credentialID;
+  const credKey: Uint8Array  = regInfo.credential?.publicKey ?? regInfo.credentialPublicKey;
+  const credCtr: number      = regInfo.credential?.counter  ?? regInfo.counter;
 
   await prisma.biometricCredential.create({
     data: {
       userId,
-      credentialId: credential.id,
-      publicKey:    Buffer.from(credential.publicKey),
-      counter:      credential.counter,
+      credentialId: credId,
+      publicKey:    Buffer.from(credKey),
+      counter:      credCtr,
       deviceName:   deviceName || 'Unknown Device',
       transports:   (response.response.transports as string[]) ?? [],
     },
@@ -253,7 +257,8 @@ export async function verifyBiometricAuth(
   });
   if (!credential) throw new Error('Biometric credential not recognized');
 
-  const verification = await verifyAuthenticationResponse({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const verifyOpts: any = {
     response,
     expectedChallenge,
     expectedOrigin: ORIGIN,
@@ -265,7 +270,8 @@ export async function verifyBiometricAuth(
       counter:    Number(credential.counter),
       transports: credential.transports as AuthenticatorTransport[],
     },
-  });
+  };
+  const verification = await verifyAuthenticationResponse(verifyOpts);
 
   if (!verification.verified) throw new Error('Biometric verification failed');
 
