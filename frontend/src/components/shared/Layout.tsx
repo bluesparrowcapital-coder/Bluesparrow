@@ -23,7 +23,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   async function handleLogout() {
     try {
       const refreshToken = localStorage.getItem('refreshToken')
-      if (refreshToken && accessToken) await authService.logout()
+      if (refreshToken && accessToken) await authService.logout(refreshToken)
     } catch { /* ignore */ }
     dispatch(logout())
     navigate('/auth/login')
