@@ -199,16 +199,6 @@ export default function OnboardingStatusPage() {
     </div>
   )
 }
-                  : <Circle size={22} className={clsx('shrink-0', isNext ? 'text-sparrow-blue' : 'text-slate-300')} />
-                }
-                <span className={clsx('flex-1 font-medium text-sm', done ? 'text-green-700' : isNext ? 'text-sparrow-blue' : 'text-slate-600')}>
-                  {step.label}
-                </span>
-                {!done && step.path && <ChevronRight size={16} className="text-slate-400" />}
-                {isNext && !done && (
-                  <span className="text-xs bg-sparrow-blue text-white px-2 py-0.5 rounded-full">Next</span>
-                )}
-              </button>
             )
           })}
         </div>
