@@ -20,6 +20,12 @@ export default function SetPinPage() {
   const [step, setStep]       = useState<'pin' | 'confirm' | 'biometric'>('pin')
   const [saving, setSaving]   = useState(false)
 
+  // If no user in state (e.g. stale session), redirect to register
+  if (!user?.userId) {
+    navigate('/auth/register', { replace: true })
+    return null
+  }
+
   async function handlePinNext() {
     if (pin.length < 4) return toast.error('Enter 4-digit PIN')
     setStep('confirm')

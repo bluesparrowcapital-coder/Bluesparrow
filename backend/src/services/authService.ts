@@ -40,14 +40,22 @@ const ORIGIN  = process.env.WEBAUTHN_ORIGIN  || 'http://localhost:5173';
 // ─── REGISTRATION ─────────────────────────────────────────
 
 export async function registerUser(data: RegisterInput) {
-  const existing = await prisma.user.findFirst({
-    where: { OR: [{ phone: data.phone }, { email: data.email }] },
-  });
+  const existingByPhone = await prisma.user.findUnique({ where: { phone: data.phone } });
 
-  if (existing) {
-    if (existing.phone === data.phone) throw new Error('Phone number already registered');
-    throw new Error('Email already registered');
+  if (existingByPhone) {
+    // Allow resuming registration if PIN was never set (incomplete signup)
+    if (!existingByPhone.pinHash) {
+      logger.info(`Resuming incomplete registration for: ${data.phone}`);
+      return prisma.user.findUnique({
+        where: { id: existingByPhone.id },
+        select: { id: true, fullName: true, email: true, phone: true, role: true, kycStatus: true },
+      });
+    }
+    throw new Error('Phone number already registered');
   }
+
+  const existingByEmail = await prisma.user.findUnique({ where: { email: data.email } });
+  if (existingByEmail) throw new Error('Email already registered');
 
   const user = await prisma.user.create({
     data: {
