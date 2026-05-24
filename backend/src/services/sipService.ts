@@ -100,16 +100,20 @@ export async function getSipById(id: string, userId: string) {
   const sip = await prisma.sipMandate.findFirst({
     where:   { id, userId },
     include: {
-      fund:         { select: { schemeName: true, fundHouse: true, category: true, nav: true, minSipAmount: true } },
-      transactions: {
-        orderBy: { txnDate: 'desc' },
-        take:    24,
-        select:  { id: true, amount: true, units: true, navAtTxn: true, status: true, txnDate: true },
-      },
+      fund: { select: { schemeName: true, fundHouse: true, category: true, nav: true, minSipAmount: true } },
     },
   });
   if (!sip) throw new Error('SIP not found');
-  return sip;
+
+  // Fetch related transactions via userId + fundId
+  const transactions = await prisma.transaction.findMany({
+    where:   { userId, fundId: sip.fundId },
+    orderBy: { txnDate: 'desc' },
+    take:    24,
+    select:  { id: true, amount: true, units: true, navAtTxn: true, status: true, txnDate: true },
+  });
+
+  return { ...sip, transactions };
 }
 
 // ─── Pause SIP ────────────────────────────────────────────
