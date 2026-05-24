@@ -1,19 +1,8 @@
-import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { RootState } from '../../store'
 import { logout } from '../../store/slices/authSlice'
 import { authService } from '../../services/authService'
-
-const PROFILE_SUB_ITEMS = [
-  { to: '/onboarding/status',   label: 'Overview',       icon: '📋' },
-  { to: '/onboarding/profile',  label: 'Personal Info',  icon: '👤' },
-  { to: '/onboarding/address',  label: 'Address',        icon: '📍' },
-  { to: '/onboarding/nominees', label: 'Nominees',       icon: '👨‍👩‍👧' },
-  { to: '/onboarding/bank',     label: 'Bank Account',   icon: '🏦' },
-  { to: '/onboarding/kyc',      label: 'KYC Status',     icon: '✅' },
-]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const dispatch    = useDispatch()
@@ -22,9 +11,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const user        = useSelector((s: RootState) => s.auth.user)
   const accessToken = useSelector((s: RootState) => s.auth.accessToken)
 
-  // Auto-expand My Profile section when on any /onboarding/* route
   const onProfileRoute = location.pathname.startsWith('/onboarding')
-  const [profileOpen, setProfileOpen] = useState(onProfileRoute)
 
   async function handleLogout() {
     try {
@@ -71,46 +58,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             Dashboard
           </NavLink>
 
-          {/* My Profile — collapsible section */}
-          <div>
-            <button
-              onClick={() => setProfileOpen((o) => !o)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                onProfileRoute
+          {/* My Profile */}
+          <NavLink
+            to="/onboarding/profile"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive || onProfileRoute
                   ? 'bg-blue-50 text-sparrow-blue'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`}
-            >
-              <span className="text-base">👤</span>
-              <span className="flex-1 text-left">My Profile</span>
-              {profileOpen
-                ? <ChevronDown size={15} className="shrink-0" />
-                : <ChevronRight size={15} className="shrink-0" />
-              }
-            </button>
-
-            {/* Sub-items */}
-            {profileOpen && (
-              <div className="ml-3 mt-0.5 border-l-2 border-blue-100 pl-3 space-y-0.5">
-                {PROFILE_SUB_ITEMS.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-blue-50 text-sparrow-blue'
-                          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-                      }`
-                    }
-                  >
-                    <span className="text-sm">{item.icon}</span>
-                    {item.label}
-                  </NavLink>
-                ))}
-              </div>
-            )}
-          </div>
+              }`
+            }
+          >
+            <span className="text-base">👤</span>
+            My Profile
+          </NavLink>
         </nav>
 
         {/* Logout */}
