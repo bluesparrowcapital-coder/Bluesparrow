@@ -58,6 +58,32 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             Dashboard
           </NavLink>
 
+          {/* Explore Funds */}
+          <NavLink
+            to="/explore"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`
+            }
+          >
+            <span className="text-base">🔍</span>
+            Explore Funds
+          </NavLink>
+
+          {/* Portfolio */}
+          <NavLink
+            to="/portfolio"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`
+            }
+          >
+            <span className="text-base">📈</span>
+            My Portfolio
+          </NavLink>
+
           {/* My Profile */}
           <NavLink
             to="/onboarding/profile"

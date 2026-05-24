@@ -8,6 +8,9 @@ import { logger } from './utils/logger';
 import authRoutes from './routes/authRoutes';
 import onboardingRoutes from './routes/onboardingRoutes';
 import bankRoutes from './routes/bankRoutes';
+import fundRoutes from './routes/fundRoutes';
+import portfolioRoutes from './routes/portfolioRoutes';
+import { startNavCronJob } from './jobs/navUpdateJob';
 
 dotenv.config();
 
@@ -36,6 +39,8 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth',       authRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/bank',       bankRoutes);
+app.use('/api/funds',      fundRoutes);
+app.use('/api/portfolio',  portfolioRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────
 app.use((_req, res) => {
@@ -52,6 +57,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 async function start() {
   try {
     await connectRedis();
+    startNavCronJob();
     app.listen(PORT, () => {
       logger.info(`Server running on http://localhost:${PORT}`);
     });

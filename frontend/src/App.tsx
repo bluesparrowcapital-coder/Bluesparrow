@@ -13,7 +13,13 @@ import OnboardingStatusPage from './pages/onboarding/OnboardingStatusPage'
 import UCCProfilePage       from './pages/onboarding/UCCProfilePage'
 import KycStatusPage        from './pages/onboarding/KycStatusPage'
 
-// Dashboard (Phase 1 landing)
+// Phase 2 — Explore & Portfolio
+import ExplorePage    from './pages/explore/ExplorePage'
+import FundDetailPage from './pages/explore/FundDetailPage'
+import InvestPage     from './pages/explore/InvestPage'
+import PortfolioPage  from './pages/portfolio/PortfolioPage'
+
+// Dashboard
 function DashboardPage() {
   return (
     <div className="space-y-6">
@@ -23,29 +29,41 @@ function DashboardPage() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         {[
-          { label: 'Portfolio Value', value: '₹0', sub: 'No investments yet', color: 'bg-blue-50 text-sparrow-blue' },
-          { label: 'Total Returns',   value: '0%', sub: 'Add funds to begin',  color: 'bg-green-50 text-green-700' },
+          { label: 'Portfolio Value', value: '₹0', sub: 'View Portfolio', href: '/portfolio',    color: 'text-sparrow-blue' },
+          { label: 'Explore Funds',  value: '→',  sub: 'Browse funds',  href: '/explore',       color: 'text-green-700' },
         ].map((card) => (
-          <div key={card.label} className="card text-center">
+          <a key={card.label} href={card.href} className="card text-center hover:shadow-md transition-all">
             <p className="text-sm text-gray-500">{card.label}</p>
-            <p className={`text-3xl font-bold mt-1 ${card.color.split(' ')[1]}`}>{card.value}</p>
+            <p className={`text-3xl font-bold mt-1 ${card.color}`}>{card.value}</p>
             <p className="text-xs text-gray-400 mt-1">{card.sub}</p>
-          </div>
+          </a>
         ))}
       </div>
       <div className="card bg-gradient-to-r from-sparrow-blue to-sparrow-teal text-white">
-        <h2 className="font-semibold text-lg mb-1">Complete your onboarding</h2>
+        <h2 className="font-semibold text-lg mb-1">Start Investing Today</h2>
         <p className="text-sm opacity-90 mb-3">
-          Finish KYC verification and bank setup to start investing.
+          Browse 10,000+ mutual funds and build your portfolio with ease.
         </p>
-        <a href="/onboarding/status" className="inline-block bg-white text-sparrow-blue text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">
-          Go to My Profile →
+        <a href="/explore" className="inline-block bg-white text-sparrow-blue text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">
+          Explore Funds →
         </a>
       </div>
-      <div className="card bg-yellow-50 border border-yellow-200">
-        <p className="text-sm text-yellow-800 font-medium">
-          🚀 Fund Browse &amp; SIP features coming in Phase 2
-        </p>
+      <div className="card">
+        <h2 className="font-semibold text-gray-800 mb-3">Quick Actions</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <a href="/explore"          className="card bg-blue-50 border-0 text-center py-3 hover:bg-blue-100 transition-colors">
+            <p className="text-2xl">🔍</p>
+            <p className="text-xs text-blue-700 font-medium mt-1">Explore</p>
+          </a>
+          <a href="/portfolio"         className="card bg-green-50 border-0 text-center py-3 hover:bg-green-100 transition-colors">
+            <p className="text-2xl">📈</p>
+            <p className="text-xs text-green-700 font-medium mt-1">Portfolio</p>
+          </a>
+          <a href="/onboarding/status" className="card bg-purple-50 border-0 text-center py-3 hover:bg-purple-100 transition-colors">
+            <p className="text-2xl">👤</p>
+            <p className="text-xs text-purple-700 font-medium mt-1">Profile</p>
+          </a>
+        </div>
       </div>
     </div>
   )
@@ -82,6 +100,14 @@ export default function App() {
       <Route path="/onboarding/status"    element={<ProtectedLayout><OnboardingStatusPage /></ProtectedLayout>} />
       <Route path="/onboarding/profile"   element={<ProtectedLayout><UCCProfilePage /></ProtectedLayout>} />
       <Route path="/onboarding/kyc"       element={<ProtectedLayout><KycStatusPage /></ProtectedLayout>} />
+
+      {/* Phase 2 — Explore & Invest */}
+      <Route path="/explore"              element={<ProtectedLayout><ExplorePage /></ProtectedLayout>} />
+      <Route path="/explore/:id"          element={<ProtectedLayout><FundDetailPage /></ProtectedLayout>} />
+      <Route path="/invest/:fundId"       element={<ProtectedLayout><InvestPage /></ProtectedLayout>} />
+
+      {/* Phase 2 — Portfolio */}
+      <Route path="/portfolio"            element={<ProtectedLayout><PortfolioPage /></ProtectedLayout>} />
 
       {/* 404 */}
       <Route path="*" element={<Navigate to="/auth/login" replace />} />
