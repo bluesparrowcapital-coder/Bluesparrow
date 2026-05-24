@@ -24,13 +24,10 @@ interface NseStatus {
 }
 
 const STEPS = [
-  { key: 'registration',   label: 'Account Created', path: null },
-  { key: 'profileCreated', label: 'Personal Profile', path: '/onboarding/profile' },
-  { key: 'addressAdded',   label: 'Address Details',  path: '/onboarding/address' },
-  { key: 'nomineeAdded',   label: 'Nominees',          path: '/onboarding/nominees' },
-  { key: 'bankAdded',      label: 'Bank Account',      path: '/onboarding/bank' },
-  { key: 'kycVerified',    label: 'KYC Verification',  path: '/onboarding/kyc' },
-  { key: 'nseOnboarded',   label: 'NSE MF Registration', path: null },
+  { key: 'registration',   label: 'Account Created',      path: null },
+  { key: 'profileCreated', label: 'UCC Profile',           path: '/onboarding/profile' },
+  { key: 'kycVerified',    label: 'KYC Verification',      path: '/onboarding/kyc' },
+  { key: 'nseOnboarded',   label: 'NSE MF Registration',   path: null },
 ] as const
 
 export default function OnboardingStatusPage() {
@@ -118,7 +115,10 @@ export default function OnboardingStatusPage() {
         {/* Step list */}
         <div className="card space-y-2">
           {STEPS.map((step) => {
-            const done   = status?.[step.key as keyof OnboardingStatus] as boolean
+            // UCC Profile step is complete only when all 4 sub-steps are done
+            const done = step.key === 'profileCreated'
+              ? !!(status?.profileCreated && status?.addressAdded && status?.nomineeAdded && status?.bankAdded)
+              : status?.[step.key as keyof OnboardingStatus] as boolean
             const isNext = !done && status?.nextStep?.toLowerCase().includes(step.key.toLowerCase())
             const isNse  = step.key === 'nseOnboarded'
 

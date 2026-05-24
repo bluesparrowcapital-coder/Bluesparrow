@@ -10,10 +10,7 @@ import SetPinPage   from './pages/auth/SetPinPage'
 
 // Onboarding
 import OnboardingStatusPage from './pages/onboarding/OnboardingStatusPage'
-import CreateProfilePage    from './pages/onboarding/CreateProfilePage'
-import AddressPage          from './pages/onboarding/AddressPage'
-import NomineePage          from './pages/onboarding/NomineePage'
-import BankPage             from './pages/onboarding/BankPage'
+import UCCProfilePage       from './pages/onboarding/UCCProfilePage'
 import KycStatusPage        from './pages/onboarding/KycStatusPage'
 
 // Dashboard (Phase 1 landing)
@@ -83,10 +80,7 @@ export default function App() {
       {/* Protected routes with sidebar layout */}
       <Route path="/dashboard"            element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
       <Route path="/onboarding/status"    element={<ProtectedLayout><OnboardingStatusPage /></ProtectedLayout>} />
-      <Route path="/onboarding/profile"   element={<ProtectedLayout><CreateProfilePage /></ProtectedLayout>} />
-      <Route path="/onboarding/address"   element={<ProtectedLayout><AddressPage /></ProtectedLayout>} />
-      <Route path="/onboarding/nominees"  element={<ProtectedLayout><NomineePage /></ProtectedLayout>} />
-      <Route path="/onboarding/bank"      element={<ProtectedLayout><BankPage /></ProtectedLayout>} />
+      <Route path="/onboarding/profile"   element={<ProtectedLayout><UCCProfilePage /></ProtectedLayout>} />
       <Route path="/onboarding/kyc"       element={<ProtectedLayout><KycStatusPage /></ProtectedLayout>} />
 
       {/* 404 */}
