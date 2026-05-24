@@ -21,7 +21,9 @@ export const clientProfileSchema = z.object({
   gender: z.enum(['M', 'F', 'T'], { message: 'Gender must be M, F or T' }),
   fatherOrSpouseName: z.string().min(2).max(100),
   motherName: z.string().min(2).max(100).optional(),
-  maritalStatus: z.enum(['SINGLE', 'MARRIED']).optional(),
+  placeOfBirth: z.string().max(100).optional(),
+  maritalStatus: z.enum(['SINGLE', 'MARRIED', 'WIDOWED', 'DIVORCED']).optional(),
+  holdingType: z.enum(['SINGLE', 'JOINT', 'ANYONE_OR_SURVIVOR']).default('SINGLE'),
   occupation: z.enum([
     'BUSINESS', 'SERVICE', 'PROFESSIONAL', 'AGRICULTURIST',
     'RETIRED', 'HOUSEWIFE', 'STUDENT', 'OTHER',
@@ -67,6 +69,8 @@ export const nomineeSchema = z.object({
         guardianRel:  z.string().max(50).optional(),
         docType:      z.enum(['AADHAAR', 'PAN', 'PASSPORT', 'VOTER_ID', 'DRIVING_LICENSE']).optional(),
         docNumber:    z.string().max(50).optional(),
+        email:        z.string().email().optional().or(z.literal('')),
+        phone:        z.string().regex(/^\d{10}$/).optional().or(z.literal('')),
       })
     )
     .min(1, 'At least one nominee required')

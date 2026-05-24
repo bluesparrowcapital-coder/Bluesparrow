@@ -21,6 +21,9 @@ export const onboardingService = {
   getAddresses: () =>
     api.get('/onboarding/address').then((r) => r.data.data),
 
+  getNominees: () =>
+    api.get('/onboarding/nominees').then((r) => r.data.data as unknown[]),
+
   saveNominees: (nominees: unknown[]) =>
     api.post('/onboarding/nominees', { nominees }).then((r) => r.data),
 

@@ -8,6 +8,7 @@ import {
   saveAddressHandler,
   fetchAddresses,
   saveNomineesHandler,
+  fetchNominees,
   nseSubmit,
   nseStatusHandler,
   kycStatus,
@@ -28,6 +29,7 @@ router.post('/profile',      createProfile);       // Step 2: Save client profil
 router.get( '/profile',      fetchProfile);        // Get saved profile
 router.post('/address',      saveAddressHandler);  // Step 3: Save address (permanent/correspondence)
 router.get( '/address',      fetchAddresses);      // Get saved addresses
+router.get( '/nominees',     fetchNominees);       // Get saved nominees
 router.post('/nominees',     saveNomineesHandler); // Step 4: Save nominees
 router.post('/nse-submit',   nseSubmit);           // Submit to NSE MF
 router.get( '/nse-status',   nseStatusHandler);    // Get NSE MF registration status

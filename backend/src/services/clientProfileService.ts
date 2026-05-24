@@ -89,10 +89,16 @@ export async function saveNominees(userId: string, data: NomineeInput) {
       guardianRel:  n.guardianRel,
       docType:      n.docType,
       docNumber:    n.docNumber,
+      email:        n.email || null,
+      phone:        n.phone || null,
     })),
   });
 
   return prisma.nominee.findMany({ where: { userId } });
+}
+
+export async function getNominees(userId: string) {
+  return prisma.nominee.findMany({ where: { userId, isActive: true } });
 }
 
 // ─── NSE MF ONBOARDING ────────────────────────────────────

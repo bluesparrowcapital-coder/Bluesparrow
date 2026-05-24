@@ -1,6 +1,7 @@
 /**
- * UCCProfilePage – single unified form for NSE UCC (Unified Client Code) onboarding.
- * Combines: Personal Details · Address · Nominees · Bank Account
+ * UCCProfilePage – Ascent Plus-style structured view/edit profile.
+ * Cards shown in 2-column grid; each card has an Edit button that
+ * opens an inline form for that section only.
  */
 
 import { useEffect, useState } from 'react'
@@ -10,64 +11,126 @@ import { z } from 'zod'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
-  Loader2, Sparkles, User, MapPin, Users, CreditCard,
-  Plus, Trash2, ChevronDown, ChevronUp,
+  Loader2, Pencil, Plus, Trash2,
+  CreditCard, MapPin, Users, User, Building2, CheckCircle2,
 } from 'lucide-react'
 import { onboardingService, bankService } from '../../services/onboardingService'
-import { useDraft } from '../../hooks/useDraft'
 import DateInput from '../../components/ui/DateInput'
 
-// ─── Zod schema – personal fields ─────────────────────────
-const personalSchema = z.object({
-  panNumber:          z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN (e.g. ABCDE1234F)'),
-  fullNameAsPan:      z.string().min(2, 'Name required'),
-  dob:                z.string().refine(
-    (d) => (Date.now() - new Date(d).getTime()) / (365.25 * 24 * 3600 * 1000) >= 18,
-    'Must be 18 or older',
-  ),
-  gender:             z.enum(['M', 'F', 'T'], { errorMap: () => ({ message: 'Select gender' }) }),
-  fatherOrSpouseName: z.string().min(2, 'Required'),
-  motherName:         z.string().optional(),
-  occupation:         z.enum(['SERVICE', 'PROFESSIONAL', 'BUSINESS', 'AGRICULTURIST', 'RETIRED', 'HOUSEWIFE', 'STUDENT', 'OTHER']),
-  taxStatus:          z.enum(['INDIVIDUAL', 'HUF', 'NRI', 'PIO']),
-  annualIncome:       z.enum(['BELOW_1L', '1L_TO_5L', '5L_TO_10L', '10L_TO_25L', '25L_TO_50L', '50L_TO_1CR', 'ABOVE_1CR'], {
-    errorMap: () => ({ message: 'Select income' }),
-  }),
-  isPep: z.boolean(),
-})
-type PersonalData = z.infer<typeof personalSchema>
+// ─── Domain types ───────────────────────────────────────────
 
-// ─── Address types ────────────────────────────────────────
-interface AddressForm {
-  addressLine1: string
-  addressLine2: string
-  city:         string
-  district:     string
-  state:        string
-  pincode:      string
-  country:      string
+type EditSection = null | 'profile' | 'address' | 'nominee' | 'bank'
+
+interface ProfileData {
+  panNumber:          string
+  fullNameAsPan:      string
+  dob:                string
+  gender:             string
+  fatherOrSpouseName: string
+  motherName?:        string
+  placeOfBirth?:      string
+  maritalStatus?:     string
+  holdingType?:       string
+  occupation:         string
+  taxStatus:          string
+  annualIncome?:      string
+  isPep:              boolean
+  user?: { email: string; phone: string }
 }
-const emptyAddress = (): AddressForm => ({
-  addressLine1: '', addressLine2: '', city: '', district: '', state: '', pincode: '', country: 'India',
-})
 
-// ─── Nominee types ────────────────────────────────────────
-interface NomineeForm {
-  fullName:     string
-  relationship: string
-  dob:          string
-  percentage:   number
-  guardianName: string
-  guardianRel:  string
-  docType:      string
-  docNumber:    string
+interface AddressData {
+  type:          'PERMANENT' | 'CORRESPONDENCE'
+  addressLine1:  string
+  addressLine2?: string
+  city:          string
+  district?:     string
+  state:         string
+  pincode:       string
+  country:       string
 }
-const emptyNominee = (): NomineeForm => ({
-  fullName: '', relationship: '', dob: '', percentage: 100,
-  guardianName: '', guardianRel: '', docType: '', docNumber: '',
-})
 
-// ─── Constants ────────────────────────────────────────────
+interface NomineeData {
+  fullName:      string
+  relationship:  string
+  dob?:          string
+  percentage:    number
+  guardianName?: string
+  guardianRel?:  string
+  docType?:      string
+  docNumber?:    string
+  email?:        string
+  phone?:        string
+}
+
+interface BankData {
+  id?:           string
+  accountNumber: string
+  ifscCode:      string
+  bankName:      string
+  accountHolder: string
+  accountType:   string
+  isDefault?:    boolean
+}
+
+// ─── Display helpers ────────────────────────────────────────
+
+function FieldRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{label}</p>
+      <p className="text-sm text-slate-800 font-medium mt-0.5 truncate">
+        {value ? value : <span className="text-slate-300 font-normal">—</span>}
+      </p>
+    </div>
+  )
+}
+
+function CardHeader({
+  icon, title, onEdit, editing,
+}: { icon: React.ReactNode; title: string; onEdit: () => void; editing?: boolean }) {
+  return (
+    <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+      <div className="flex items-center gap-2">
+        <span className="w-7 h-7 rounded-lg bg-sparrow-blue/10 flex items-center justify-center text-sparrow-blue">
+          {icon}
+        </span>
+        <h3 className="font-semibold text-slate-800 text-sm">{title}</h3>
+      </div>
+      <button
+        type="button"
+        onClick={onEdit}
+        className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition ${
+          editing
+            ? 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+            : 'text-sparrow-blue bg-blue-50 hover:bg-blue-100'
+        }`}
+      >
+        {editing ? '✕ Cancel' : <><Pencil size={12} /> Edit</>}
+      </button>
+    </div>
+  )
+}
+
+// ─── Label maps ─────────────────────────────────────────────
+
+const GENDERS:     Record<string, string> = { M: 'Male', F: 'Female', T: 'Transgender' }
+const OCCUPATIONS: Record<string, string> = {
+  SERVICE: 'Service', PROFESSIONAL: 'Professional', BUSINESS: 'Business',
+  AGRICULTURIST: 'Agriculturist', RETIRED: 'Retired',
+  HOUSEWIFE: 'Housewife', STUDENT: 'Student', OTHER: 'Other',
+}
+const INCOMES: Record<string, string> = {
+  BELOW_1L: 'Below ₹1L', '1L_TO_5L': '₹1L – 5L', '5L_TO_10L': '₹5L – 10L',
+  '10L_TO_25L': '₹10L – 25L', '25L_TO_50L': '₹25L – 50L',
+  '50L_TO_1CR': '₹50L – 1Cr', ABOVE_1CR: 'Above ₹1Cr', ABOVE_25L: 'Above ₹25L',
+}
+const MARITAL: Record<string, string> = {
+  SINGLE: 'Single', MARRIED: 'Married', WIDOWED: 'Widowed', DIVORCED: 'Divorced',
+}
+const HOLDING: Record<string, string> = {
+  SINGLE: 'Single', JOINT: 'Joint', ANYONE_OR_SURVIVOR: 'Anyone or Survivor',
+}
+
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
   'Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh',
@@ -76,273 +139,134 @@ const INDIAN_STATES = [
   'Andaman and Nicobar Islands','Chandigarh','Dadra and Nagar Haveli and Daman and Diu',
   'Delhi','Jammu and Kashmir','Ladakh','Lakshadweep','Puducherry',
 ]
-const RELATIONSHIPS = ['SPOUSE','SON','DAUGHTER','FATHER','MOTHER','BROTHER','SISTER','GRANDFATHER','GRANDMOTHER','GRANDSON','GRANDDAUGHTER','OTHER']
-const DOC_TYPES = [
-  { value: 'AADHAAR', label: 'Aadhaar' }, { value: 'PAN', label: 'PAN' },
-  { value: 'PASSPORT', label: 'Passport' }, { value: 'VOTER_ID', label: 'Voter ID' },
-  { value: 'DRIVING_LICENSE', label: 'Driving License' },
+
+const RELATIONSHIPS = [
+  'SPOUSE','SON','DAUGHTER','FATHER','MOTHER','BROTHER','SISTER',
+  'GRANDFATHER','GRANDMOTHER','GRANDSON','GRANDDAUGHTER','OTHER',
 ]
 
-function isMinor(dob: string): boolean {
+function isMinor(dob?: string): boolean {
   if (!dob) return false
   return (Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25) < 18
 }
-function toTitleCase(s: string) { return s.replace(/\b\w/g, (c) => c.toUpperCase()) }
 
-// ─── Section header component ─────────────────────────────
-function SectionHeader({
-  icon, title, subtitle, open, onToggle,
-}: { icon: React.ReactNode; title: string; subtitle: string; open: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="w-full flex items-center gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100 hover:bg-blue-100 transition text-left"
-    >
-      <span className="w-8 h-8 bg-sparrow-blue rounded-lg flex items-center justify-center text-white shrink-0">
-        {icon}
-      </span>
-      <div className="flex-1">
-        <p className="font-semibold text-slate-800 text-sm">{title}</p>
-        <p className="text-xs text-slate-500">{subtitle}</p>
-      </div>
-      {open ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
-    </button>
-  )
-}
+// ─── Profile Zod schema ─────────────────────────────────────
 
-// ─── Main component ───────────────────────────────────────
+const profileSchema = z.object({
+  panNumber:          z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN'),
+  fullNameAsPan:      z.string().min(2, 'Name required'),
+  dob:                z.string().refine(
+    (d) => (Date.now() - new Date(d).getTime()) / (365.25 * 24 * 3600 * 1000) >= 18,
+    'Must be 18 or older',
+  ),
+  gender:             z.enum(['M', 'F', 'T']),
+  fatherOrSpouseName: z.string().min(2, 'Required'),
+  motherName:         z.string().optional(),
+  placeOfBirth:       z.string().optional(),
+  maritalStatus:      z.enum(['SINGLE', 'MARRIED', 'WIDOWED', 'DIVORCED']).optional(),
+  holdingType:        z.enum(['SINGLE', 'JOINT', 'ANYONE_OR_SURVIVOR']).default('SINGLE'),
+  occupation:         z.enum(['SERVICE', 'PROFESSIONAL', 'BUSINESS', 'AGRICULTURIST', 'RETIRED', 'HOUSEWIFE', 'STUDENT', 'OTHER']),
+  taxStatus:          z.enum(['INDIVIDUAL', 'HUF', 'NRI', 'PIO']),
+  annualIncome:       z.enum(['BELOW_1L', '1L_TO_5L', '5L_TO_10L', '10L_TO_25L', '25L_TO_50L', '50L_TO_1CR', 'ABOVE_1CR']).optional(),
+  isPep:              z.boolean().default(false),
+})
+type ProfileForm = z.infer<typeof profileSchema>
+
+// ═══════════════════════════════════════════════════════════
+//  MAIN PAGE
+// ═══════════════════════════════════════════════════════════
+
 export default function UCCProfilePage() {
   const navigate = useNavigate()
 
-  // Section open/close state
-  const [openSections, setOpenSections] = useState({ personal: true, address: true, nominee: true, bank: true })
-  function toggle(section: keyof typeof openSections) {
-    setOpenSections((s) => ({ ...s, [section]: !s[section] }))
-  }
+  const [profile,      setProfile]      = useState<ProfileData | null>(null)
+  const [addresses,    setAddresses]    = useState<AddressData[]>([])
+  const [nominees,     setNominees]     = useState<NomineeData[]>([])
+  const [bankAccounts, setBankAccounts] = useState<BankData[]>([])
+  const [userInfo,     setUserInfo]     = useState<{ email: string; phone: string } | null>(null)
 
-  // ── Personal form (RHF + Zod) ──
-  const personalDraft = useDraft<PersonalData>('ucc_personal')
+  const [initialising, setInitialising] = useState(true)
+  const [saving,       setSaving]       = useState(false)
+  const [editing,      setEditing]      = useState<EditSection>(null)
+
+  // ── Profile form ──
   const {
-    register, handleSubmit: rhfSubmit, reset: resetPersonal,
-    setValue: setPersonalValue, getValues: getPersonalValues,
-    watch: watchPersonal, formState: { errors: pErrors },
-  } = useForm<PersonalData>({
-    resolver: zodResolver(personalSchema),
+    register: regProf,
+    handleSubmit: rhfProf,
+    setValue: setProfVal,
+    watch: watchProf,
+    reset: resetProfile,
+    formState: { errors: profErr },
+  } = useForm<ProfileForm>({
+    resolver: zodResolver(profileSchema),
     defaultValues: {
       gender: 'M', occupation: 'SERVICE', taxStatus: 'INDIVIDUAL',
-      annualIncome: 'BELOW_1L', isPep: false,
+      holdingType: 'SINGLE', isPep: false,
     },
   })
+  const profDob = watchProf('dob')
 
-  // ── Address state ──
-  const [permanent, setPermanent]           = useState<AddressForm>(emptyAddress())
-  const [correspondence, setCorrespondence] = useState<AddressForm>(emptyAddress())
-  const [sameAsPermanent, setSameAsPermanent] = useState(false)
-  const [addrErrors, setAddrErrors]         = useState<Record<string, string>>({})
-
-  // ── Nominee state ──
-  const [nominees, setNominees] = useState<NomineeForm[]>([emptyNominee()])
-  const [nomErrors, setNomErrors] = useState<Record<string, string>>({})
-  const totalPct = nominees.reduce((s, n) => s + Number(n.percentage || 0), 0)
-
-  // ── Bank state ──
-  const [existingAccounts, setExistingAccounts] = useState<any[]>([])
-  const [showBankForm, setShowBankForm]         = useState(false)
-  const [bank, setBank] = useState({ accountNumber: '', ifscCode: '', bankName: '', accountHolder: '', accountType: 'SB' })
-  const [bankErrors, setBankErrors] = useState<Partial<typeof bank>>({})
-
-  // ── Loading flags ──
-  const [prefilling, setPrefilling] = useState(false)
-  const [initialising, setInitialising] = useState(true)
-  const [saving, setSaving] = useState(false)
-
-  // ── Load all existing data on mount ──
+  // ── Load all data ──
   useEffect(() => {
     Promise.allSettled([
       onboardingService.getProfile(),
       onboardingService.getAddresses(),
+      onboardingService.getNominees(),
       bankService.getAccounts(),
-    ]).then(([profileRes, addrRes, bankRes]) => {
-      // Personal
+    ]).then(([profileRes, addrRes, nomRes, bankRes]) => {
       if (profileRes.status === 'fulfilled' && profileRes.value) {
-        resetPersonal(profileRes.value)
+        const p = profileRes.value as ProfileData
+        setProfile(p)
+        setUserInfo({
+          email: p.user?.email ?? (p as any).email ?? '',
+          phone: p.user?.phone ?? (p as any).mobile ?? '',
+        })
       } else {
-        const saved = personalDraft.load()
-        if (saved) resetPersonal(saved)
-        // Try prefill from registration
+        setEditing('profile')
         onboardingService.getPrefill().then((u) => {
-          if (!getPersonalValues('panNumber') && u.panNumber)
-            setPersonalValue('panNumber', u.panNumber)
-          if (!getPersonalValues('fullNameAsPan') && u.fullName)
-            setPersonalValue('fullNameAsPan', u.fullName.toUpperCase())
+          resetProfile((prev) => ({
+            ...prev,
+            panNumber:     u.panNumber ?? '',
+            fullNameAsPan: u.fullName ? u.fullName.toUpperCase() : '',
+          }))
         }).catch(() => {})
       }
-
-      // Addresses
-      if (addrRes.status === 'fulfilled') {
-        const list: any[] = addrRes.value ?? []
-        list.forEach((a: any) => {
-          const f: AddressForm = {
-            addressLine1: a.addressLine1 ?? '', addressLine2: a.addressLine2 ?? '',
-            city: a.city ?? '', district: a.district ?? '',
-            state: a.state ?? '', pincode: a.pincode ?? '', country: a.country ?? 'India',
-          }
-          if (a.type === 'PERMANENT')      setPermanent(f)
-          if (a.type === 'CORRESPONDENCE') setCorrespondence(f)
-        })
-      }
-
-      // Bank
-      if (bankRes.status === 'fulfilled') {
-        const accs: any[] = bankRes.value ?? []
-        setExistingAccounts(accs)
-        setShowBankForm(accs.length === 0)
-      } else {
-        setShowBankForm(true)
-      }
+      if (addrRes.status === 'fulfilled') setAddresses(addrRes.value ?? [])
+      if (nomRes.status === 'fulfilled')  setNominees((nomRes.value as NomineeData[]) ?? [])
+      if (bankRes.status === 'fulfilled') setBankAccounts(bankRes.value ?? [])
     }).finally(() => setInitialising(false))
   }, []) // eslint-disable-line
 
-  // Auto-save personal draft on change
-  const watchedPersonal = watchPersonal()
+  // Sync profile form when data loads
   useEffect(() => {
-    const any = Object.values(watchedPersonal).some((v) => v !== '' && v !== false && v !== undefined)
-    if (any) personalDraft.save(watchedPersonal)
-  }, [watchedPersonal]) // eslint-disable-line
-
-  // ── Auto-fill from registration ──
-  async function handlePrefill() {
-    setPrefilling(true)
-    try {
-      const u = await onboardingService.getPrefill()
-      if (u.panNumber) setPersonalValue('panNumber', u.panNumber)
-      if (u.fullName)  setPersonalValue('fullNameAsPan', u.fullName.toUpperCase())
-      toast.success('Pre-filled from registration data!')
-    } catch {
-      toast.error('Could not fetch details')
-    } finally {
-      setPrefilling(false)
-    }
-  }
-
-  // ── Address helpers ──
-  function setAddr(which: 'perm' | 'corr', field: keyof AddressForm, value: string) {
-    const textFields: (keyof AddressForm)[] = ['addressLine1', 'addressLine2', 'city', 'district']
-    const finalVal = textFields.includes(field) ? toTitleCase(value) : value
-    if (which === 'perm') setPermanent((p) => ({ ...p, [field]: finalVal }))
-    else setCorrespondence((p) => ({ ...p, [field]: finalVal }))
-    setAddrErrors((e) => { const n = { ...e }; delete n[`${which}.${field}`]; return n })
-  }
-  function validateAddress(): boolean {
-    const errs: Record<string, string> = {}
-    const check = (f: AddressForm, pfx: string) => {
-      if (!f.addressLine1.trim()) errs[`${pfx}.addressLine1`] = 'Required'
-      if (!f.city.trim())         errs[`${pfx}.city`]         = 'Required'
-      if (!f.state)               errs[`${pfx}.state`]        = 'Required'
-      if (!/^\d{6}$/.test(f.pincode)) errs[`${pfx}.pincode`] = '6-digit pincode required'
-    }
-    check(permanent, 'perm')
-    if (!sameAsPermanent) check(correspondence, 'corr')
-    setAddrErrors(errs)
-    return Object.keys(errs).length === 0
-  }
-
-  // ── Nominee helpers ──
-  function setNominee(i: number, field: keyof NomineeForm, value: string | number) {
-    setNominees((prev) => { const n = [...prev]; n[i] = { ...n[i], [field]: value }; return n })
-  }
-  function addNominee() {
-    if (nominees.length >= 3) return
-    const remaining = 100 - nominees.reduce((s, n) => s + Number(n.percentage || 0), 0)
-    setNominees((p) => [...p, { ...emptyNominee(), percentage: Math.max(0, remaining) }])
-  }
-  function removeNominee(i: number) {
-    if (nominees.length === 1) return
-    const removed = nominees[i].percentage
-    const next = nominees.filter((_, idx) => idx !== i)
-    next[0].percentage = Number(next[0].percentage) + Number(removed)
-    setNominees(next)
-  }
-  function validateNominees(): boolean {
-    const errs: Record<string, string> = {}
-    nominees.forEach((n, i) => {
-      if (!n.fullName.trim())  errs[`${i}.fullName`]     = 'Name required'
-      if (!n.relationship)     errs[`${i}.relationship`] = 'Relationship required'
-      if (!n.percentage || n.percentage < 1) errs[`${i}.percentage`] = 'Min 1%'
-      if (isMinor(n.dob) && !n.guardianName.trim())
-        errs[`${i}.guardianName`] = 'Guardian required for minor'
+    if (!profile) return
+    resetProfile({
+      panNumber:          profile.panNumber          ?? '',
+      fullNameAsPan:      profile.fullNameAsPan      ?? '',
+      dob:                profile.dob ? profile.dob.substring(0, 10) : '',
+      gender:             (profile.gender            as ProfileForm['gender'])      ?? 'M',
+      fatherOrSpouseName: profile.fatherOrSpouseName ?? '',
+      motherName:         profile.motherName,
+      placeOfBirth:       profile.placeOfBirth,
+      maritalStatus:      (profile.maritalStatus     as ProfileForm['maritalStatus']) ?? undefined,
+      holdingType:        (profile.holdingType       as ProfileForm['holdingType'])   ?? 'SINGLE',
+      occupation:         (profile.occupation        as ProfileForm['occupation'])    ?? 'SERVICE',
+      taxStatus:          (profile.taxStatus         as ProfileForm['taxStatus'])     ?? 'INDIVIDUAL',
+      annualIncome:       (profile.annualIncome      as ProfileForm['annualIncome'])  ?? undefined,
+      isPep:              profile.isPep ?? false,
     })
-    if (totalPct !== 100) errs['total'] = `Total must be 100% (currently ${totalPct}%)`
-    setNomErrors(errs)
-    return Object.keys(errs).length === 0
-  }
+  }, [profile]) // eslint-disable-line
 
-  // ── Bank helpers ──
-  function validateBank(): boolean {
-    if (!showBankForm) return true
-    const errs: Partial<typeof bank> = {}
-    if (!/^\d{9,18}$/.test(bank.accountNumber)) errs.accountNumber = '9–18 digits required'
-    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bank.ifscCode.toUpperCase())) errs.ifscCode = 'Invalid IFSC'
-    if (!bank.bankName.trim())      errs.bankName      = 'Bank name required'
-    if (!bank.accountHolder.trim()) errs.accountHolder = 'Holder name required'
-    setBankErrors(errs)
-    return Object.keys(errs).length === 0
-  }
-
-  // ── Final submit ──
-  async function onSaveAll(personalData: PersonalData) {
-    // Validate other sections
-    const addrOk = validateAddress()
-    const nomOk  = validateNominees()
-    const bankOk = validateBank()
-
-    if (!addrOk) { toggle('address'); toast.error('Fix address errors'); return }
-    if (!nomOk)  { toggle('nominee'); toast.error('Fix nominee errors');  return }
-    if (!bankOk) { toggle('bank');    toast.error('Fix bank errors');     return }
-
+  async function onSaveProfile(data: ProfileForm) {
     setSaving(true)
     try {
-      // 1. Personal profile
-      await onboardingService.saveProfile(personalData as unknown as Record<string, unknown>)
-
-      // 2. Address
-      await onboardingService.saveAddress({ type: 'PERMANENT', ...permanent })
-      await onboardingService.saveAddress({
-        type: 'CORRESPONDENCE',
-        ...(sameAsPermanent ? permanent : correspondence),
-      })
-
-      // 3. Nominees
-      const nomPayload = nominees.map((n) => ({
-        fullName:     n.fullName.trim(),
-        relationship: n.relationship,
-        dob:          n.dob || undefined,
-        percentage:   Number(n.percentage),
-        guardianName: n.guardianName.trim() || undefined,
-        guardianRel:  n.guardianRel.trim() || undefined,
-        docType:      n.docType || undefined,
-        docNumber:    n.docNumber.trim() || undefined,
-      }))
-      await onboardingService.saveNominees(nomPayload)
-
-      // 4. Bank (only if no existing accounts and form is filled)
-      if (showBankForm && bank.accountNumber) {
-        await bankService.addAccount({
-          ...bank,
-          ifscCode:  bank.ifscCode.toUpperCase(),
-          isDefault: true,
-        })
-      }
-
-      personalDraft.clear()
-      toast.success('UCC Profile saved successfully!')
-      navigate('/onboarding/status')
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Could not save profile. Please try again.')
-    } finally {
-      setSaving(false)
-    }
+      await onboardingService.saveProfile(data as unknown as Record<string, unknown>)
+      setProfile(data as unknown as ProfileData)
+      setEditing(null)
+      toast.success('Profile saved!')
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Could not save profile')
+    } finally { setSaving(false) }
   }
 
   if (initialising) {
@@ -353,462 +277,767 @@ export default function UCCProfilePage() {
     )
   }
 
-  return (
-    <form onSubmit={rhfSubmit(onSaveAll)} className="max-w-2xl mx-auto space-y-4 pb-10">
+  const permAddr = addresses.find((a) => a.type === 'PERMANENT')
+  const corrAddr = addresses.find((a) => a.type === 'CORRESPONDENCE')
 
-      {/* Page title */}
-      <div className="mb-2">
-        <h1 className="text-2xl font-bold text-slate-800">UCC Profile</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Unified Client Code – required for NSE MF onboarding</p>
+  return (
+    <div className="max-w-5xl mx-auto space-y-5 pb-14 px-4">
+
+      {/* ── Page header ── */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">My Profile</h1>
+        <p className="text-slate-500 text-sm mt-0.5">UCC – Unified Client Code details for NSE MF</p>
       </div>
 
       {/* ════════════════════════════════════════════════
-          SECTION 1 – PERSONAL DETAILS
+          ROW 1 — PAN Details  |  Personal Details
       ════════════════════════════════════════════════ */}
-      <SectionHeader
-        icon={<User size={16} />}
-        title="Personal Details"
-        subtitle="PAN, name, date of birth, occupation"
-        open={openSections.personal}
-        onToggle={() => toggle('personal')}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-      {openSections.personal && (
-        <div className="card space-y-4">
-          {/* Auto-fill */}
-          <button
-            type="button"
-            onClick={handlePrefill}
-            disabled={prefilling}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-50 border border-blue-200 text-sparrow-blue rounded-xl text-sm font-medium hover:bg-blue-100 transition"
-          >
-            {prefilling
-              ? <><Loader2 size={14} className="animate-spin" /> Fetching…</>
-              : <><Sparkles size={14} /> Auto-fill from registration</>}
-          </button>
+        {/* ── PAN Details card ── */}
+        <div className="card">
+          <CardHeader
+            icon={<User size={14} />}
+            title="PAN Details"
+            editing={editing === 'profile'}
+            onEdit={() => setEditing(editing === 'profile' ? null : 'profile')}
+          />
+          {editing === 'profile' ? (
+            <form onSubmit={rhfProf(onSaveProfile)} className="space-y-5">
 
-          {/* PAN + Name */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="field-label">PAN Number <span className="text-red-500">*</span></label>
-              <input
-                {...register('panNumber')}
-                placeholder="ABCDE1234F"
-                className="input-field uppercase"
-                style={{ textTransform: 'uppercase' }}
-              />
-              {pErrors.panNumber && <p className="err">{pErrors.panNumber.message}</p>}
-            </div>
-            <div>
-              <label className="field-label">Full Name (as on PAN) <span className="text-red-500">*</span></label>
-              <input {...register('fullNameAsPan')} placeholder="RAHUL KUMAR" className="input-field" />
-              {pErrors.fullNameAsPan && <p className="err">{pErrors.fullNameAsPan.message}</p>}
-            </div>
-          </div>
-
-          {/* DOB + Gender */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="field-label">Date of Birth <span className="text-red-500">*</span></label>
-              <DateInput
-                value={watchPersonal('dob') ?? ''}
-                onChange={(iso) => setPersonalValue('dob', iso, { shouldValidate: true })}
-                max={new Date().toISOString().split('T')[0]}
-              />
-              {pErrors.dob && <p className="err">{pErrors.dob.message}</p>}
-            </div>
-            <div>
-              <label className="field-label">Gender <span className="text-red-500">*</span></label>
-              <select {...register('gender')} className="input-field">
-                <option value="M">Male</option>
-                <option value="F">Female</option>
-                <option value="T">Other / Transgender</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Father / Mother */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="field-label">Father / Spouse Name <span className="text-red-500">*</span></label>
-              <input {...register('fatherOrSpouseName')} placeholder="Full name" className="input-field" />
-              {pErrors.fatherOrSpouseName && <p className="err">{pErrors.fatherOrSpouseName.message}</p>}
-            </div>
-            <div>
-              <label className="field-label">Mother's Name</label>
-              <input {...register('motherName')} placeholder="Optional" className="input-field" />
-            </div>
-          </div>
-
-          {/* Occupation + Tax Status */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="field-label">Occupation <span className="text-red-500">*</span></label>
-              <select {...register('occupation')} className="input-field">
-                <option value="SERVICE">Salaried / Service</option>
-                <option value="PROFESSIONAL">Self-Employed / Professional</option>
-                <option value="BUSINESS">Business</option>
-                <option value="AGRICULTURIST">Agriculturist</option>
-                <option value="RETIRED">Retired</option>
-                <option value="HOUSEWIFE">Housewife</option>
-                <option value="STUDENT">Student</option>
-                <option value="OTHER">Others</option>
-              </select>
-            </div>
-            <div>
-              <label className="field-label">Tax Status <span className="text-red-500">*</span></label>
-              <select {...register('taxStatus')} className="input-field">
-                <option value="INDIVIDUAL">Individual</option>
-                <option value="HUF">HUF</option>
-                <option value="NRI">NRI</option>
-                <option value="PIO">PIO</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Annual Income */}
-          <div>
-            <label className="field-label">Annual Income <span className="text-red-500">*</span></label>
-            <select {...register('annualIncome')} className="input-field">
-              <option value="BELOW_1L">Below ₹1 Lakh</option>
-              <option value="1L_TO_5L">₹1 – 5 Lakh</option>
-              <option value="5L_TO_10L">₹5 – 10 Lakh</option>
-              <option value="10L_TO_25L">₹10 – 25 Lakh</option>
-              <option value="25L_TO_50L">₹25 – 50 Lakh</option>
-              <option value="50L_TO_1CR">₹50 Lakh – 1 Crore</option>
-              <option value="ABOVE_1CR">Above ₹1 Crore</option>
-            </select>
-            {pErrors.annualIncome && <p className="err">{pErrors.annualIncome.message}</p>}
-          </div>
-
-          {/* PEP */}
-          <label className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100 cursor-pointer select-none">
-            <input {...register('isPep')} type="checkbox" className="w-4 h-4 accent-sparrow-blue" />
-            <span className="text-sm text-slate-700">I am a Politically Exposed Person (PEP)</span>
-          </label>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════════
-          SECTION 2 – ADDRESS
-      ════════════════════════════════════════════════ */}
-      <SectionHeader
-        icon={<MapPin size={16} />}
-        title="Address Details"
-        subtitle="Permanent & correspondence address"
-        open={openSections.address}
-        onToggle={() => toggle('address')}
-      />
-
-      {openSections.address && (
-        <div className="card space-y-5">
-          {/* Permanent address */}
-          <p className="text-sm font-semibold text-slate-700 border-b border-slate-100 pb-1">Permanent Address</p>
-          <AddressBlock prefix="perm" form={permanent} errors={addrErrors} onChange={(f, v) => setAddr('perm', f, v)} />
-
-          {/* Correspondence toggle */}
-          <label className="flex items-center gap-3 cursor-pointer select-none p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <input
-              type="checkbox"
-              checked={sameAsPermanent}
-              onChange={(e) => setSameAsPermanent(e.target.checked)}
-              className="w-4 h-4 accent-sparrow-blue"
-            />
-            <span className="text-sm text-slate-700 font-medium">
-              Correspondence address same as permanent address
-            </span>
-          </label>
-
-          {/* Correspondence address */}
-          {!sameAsPermanent && (
-            <>
-              <p className="text-sm font-semibold text-slate-700 border-b border-slate-100 pb-1">Correspondence Address</p>
-              <AddressBlock prefix="corr" form={correspondence} errors={addrErrors} onChange={(f, v) => setAddr('corr', f, v)} />
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════════
-          SECTION 3 – NOMINEES
-      ════════════════════════════════════════════════ */}
-      <SectionHeader
-        icon={<Users size={16} />}
-        title="Nominee Details"
-        subtitle="Add up to 3 nominees · total must be 100%"
-        open={openSections.nominee}
-        onToggle={() => toggle('nominee')}
-      />
-
-      {openSections.nominee && (
-        <div className="space-y-3">
-          {/* Total percentage bar */}
-          <div className={`flex items-center justify-between px-4 py-2 rounded-xl text-sm font-medium ${totalPct === 100 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
-            <span>Total allocation</span>
-            <span className="font-bold tabular-nums">{totalPct}%</span>
-          </div>
-          {nomErrors['total'] && <p className="err px-1">{nomErrors['total']}</p>}
-
-          {nominees.map((nom, i) => (
-            <div key={i} className="card space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-700">Nominee {i + 1}</p>
-                {nominees.length > 1 && (
-                  <button type="button" onClick={() => removeNominee(i)} className="text-red-400 hover:text-red-600 transition p-1">
-                    <Trash2 size={15} />
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="field-label">Full Name <span className="text-red-500">*</span></label>
-                  <input value={nom.fullName} onChange={(e) => setNominee(i, 'fullName', e.target.value)} placeholder="Nominee full name" className="input-field" />
-                  {nomErrors[`${i}.fullName`] && <p className="err">{nomErrors[`${i}.fullName`]}</p>}
-                </div>
-                <div>
-                  <label className="field-label">Relationship <span className="text-red-500">*</span></label>
-                  <select value={nom.relationship} onChange={(e) => setNominee(i, 'relationship', e.target.value)} className="input-field">
-                    <option value="">Select</option>
-                    {RELATIONSHIPS.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                  {nomErrors[`${i}.relationship`] && <p className="err">{nomErrors[`${i}.relationship`]}</p>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="field-label">Date of Birth</label>
-                  <DateInput
-                    value={nom.dob}
-                    onChange={(iso) => setNominee(i, 'dob', iso)}
-                    max={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-                <div>
-                  <label className="field-label">Share % <span className="text-red-500">*</span></label>
-                  <input
-                    type="number" min={1} max={100}
-                    value={nom.percentage}
-                    onChange={(e) => setNominee(i, 'percentage', Number(e.target.value))}
-                    className="input-field"
-                  />
-                  {nomErrors[`${i}.percentage`] && <p className="err">{nomErrors[`${i}.percentage`]}</p>}
-                </div>
-              </div>
-
-              {/* ID proof */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="field-label">ID Proof Type</label>
-                  <select value={nom.docType} onChange={(e) => setNominee(i, 'docType', e.target.value)} className="input-field">
-                    <option value="">Select (optional)</option>
-                    {DOC_TYPES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label">ID Number</label>
-                  <input value={nom.docNumber} onChange={(e) => setNominee(i, 'docNumber', e.target.value)} placeholder="Optional" className="input-field" />
-                </div>
-              </div>
-
-              {/* Guardian (minor nominee) */}
-              {isMinor(nom.dob) && (
-                <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl space-y-3">
-                  <p className="text-xs text-amber-700 font-medium">⚠️ Minor nominee – guardian details required</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="field-label">Guardian Name <span className="text-red-500">*</span></label>
-                      <input value={nom.guardianName} onChange={(e) => setNominee(i, 'guardianName', e.target.value)} placeholder="Guardian full name" className="input-field" />
-                      {nomErrors[`${i}.guardianName`] && <p className="err">{nomErrors[`${i}.guardianName`]}</p>}
-                    </div>
-                    <div>
-                      <label className="field-label">Guardian Relation</label>
-                      <input value={nom.guardianRel} onChange={(e) => setNominee(i, 'guardianRel', e.target.value)} placeholder="e.g. Father" className="input-field" />
-                    </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">PAN &amp; Identity</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="field-label">PAN Number *</label>
+                    <input {...regProf('panNumber')} placeholder="ABCDE1234F" className="input-field uppercase" />
+                    {profErr.panNumber && <p className="err">{profErr.panNumber.message}</p>}
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
-
-          {nominees.length < 3 && (
-            <button type="button" onClick={addNominee} className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-sm text-slate-500 hover:border-sparrow-blue hover:text-sparrow-blue transition">
-              <Plus size={16} /> Add Another Nominee
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════════
-          SECTION 4 – BANK ACCOUNT
-      ════════════════════════════════════════════════ */}
-      <SectionHeader
-        icon={<CreditCard size={16} />}
-        title="Bank Account"
-        subtitle="Primary bank account for redemptions"
-        open={openSections.bank}
-        onToggle={() => toggle('bank')}
-      />
-
-      {openSections.bank && (
-        <div className="card space-y-4">
-          {/* Existing accounts */}
-          {existingAccounts.length > 0 && (
-            <div className="space-y-2">
-              {existingAccounts.map((acc) => (
-                <div key={acc.id} className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl">
-                  <CreditCard size={18} className="text-green-600 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-green-800 truncate">{acc.bankName}</p>
-                    <p className="text-xs text-green-600 font-mono">{'XXXX' + String(acc.accountNumber).slice(-4)} · {acc.accountHolder}</p>
+                  <div>
+                    <label className="field-label">Name as on PAN *</label>
+                    <input {...regProf('fullNameAsPan')} placeholder="Full name on PAN" className="input-field uppercase" />
+                    {profErr.fullNameAsPan && <p className="err">{profErr.fullNameAsPan.message}</p>}
                   </div>
-                  {acc.isDefault && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full shrink-0">Primary</span>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setShowBankForm((v) => !v)}
-                className="text-sm text-sparrow-blue hover:underline"
-              >
-                {showBankForm ? '− Hide form' : '+ Add another account'}
-              </button>
-            </div>
-          )}
-
-          {/* Add bank form */}
-          {showBankForm && (
-            <div className="space-y-3">
-              {existingAccounts.length > 0 && (
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">New Bank Account</p>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="field-label">Account Number <span className="text-red-500">*</span></label>
-                  <input
-                    value={bank.accountNumber}
-                    onChange={(e) => { setBank((b) => ({ ...b, accountNumber: e.target.value })); setBankErrors((er) => ({ ...er, accountNumber: '' })) }}
-                    placeholder="9–18 digit account number"
-                    className="input-field"
-                  />
-                  {bankErrors.accountNumber && <p className="err">{bankErrors.accountNumber}</p>}
-                </div>
-                <div>
-                  <label className="field-label">IFSC Code <span className="text-red-500">*</span></label>
-                  <input
-                    value={bank.ifscCode}
-                    onChange={(e) => { setBank((b) => ({ ...b, ifscCode: e.target.value.toUpperCase() })); setBankErrors((er) => ({ ...er, ifscCode: '' })) }}
-                    placeholder="SBIN0001234"
-                    className="input-field uppercase"
-                    style={{ textTransform: 'uppercase' }}
-                  />
-                  {bankErrors.ifscCode && <p className="err">{bankErrors.ifscCode}</p>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="field-label">Bank Name <span className="text-red-500">*</span></label>
-                  <input
-                    value={bank.bankName}
-                    onChange={(e) => { setBank((b) => ({ ...b, bankName: e.target.value })); setBankErrors((er) => ({ ...er, bankName: '' })) }}
-                    placeholder="State Bank of India"
-                    className="input-field"
-                  />
-                  {bankErrors.bankName && <p className="err">{bankErrors.bankName}</p>}
-                </div>
-                <div>
-                  <label className="field-label">Account Type</label>
-                  <select value={bank.accountType} onChange={(e) => setBank((b) => ({ ...b, accountType: e.target.value }))} className="input-field">
-                    <option value="SB">Savings (SB)</option>
-                    <option value="CA">Current (CA)</option>
-                    <option value="NRE">NRE</option>
-                    <option value="NRO">NRO</option>
-                  </select>
+                  <div>
+                    <label className="field-label">Date of Birth *</label>
+                    <DateInput value={profDob ?? ''} onChange={(v) => setProfVal('dob', v)} />
+                    {profErr.dob && <p className="err">{profErr.dob.message}</p>}
+                  </div>
+                  <div>
+                    <label className="field-label">Holding Type</label>
+                    <select {...regProf('holdingType')} className="input-field">
+                      <option value="SINGLE">Single</option>
+                      <option value="JOINT">Joint</option>
+                      <option value="ANYONE_OR_SURVIVOR">Anyone or Survivor</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">Tax Status *</label>
+                    <select {...regProf('taxStatus')} className="input-field">
+                      <option value="INDIVIDUAL">Individual</option>
+                      <option value="HUF">HUF</option>
+                      <option value="NRI">NRI</option>
+                      <option value="PIO">PIO</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">Annual Income</label>
+                    <select {...regProf('annualIncome')} className="input-field">
+                      <option value="">Select</option>
+                      <option value="BELOW_1L">Below ₹1L</option>
+                      <option value="1L_TO_5L">₹1L – 5L</option>
+                      <option value="5L_TO_10L">₹5L – 10L</option>
+                      <option value="10L_TO_25L">₹10L – 25L</option>
+                      <option value="25L_TO_50L">₹25L – 50L</option>
+                      <option value="50L_TO_1CR">₹50L – 1Cr</option>
+                      <option value="ABOVE_1CR">Above ₹1Cr</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">Occupation *</label>
+                    <select {...regProf('occupation')} className="input-field">
+                      <option value="SERVICE">Service</option>
+                      <option value="PROFESSIONAL">Professional</option>
+                      <option value="BUSINESS">Business</option>
+                      <option value="AGRICULTURIST">Agriculturist</option>
+                      <option value="RETIRED">Retired</option>
+                      <option value="HOUSEWIFE">Housewife</option>
+                      <option value="STUDENT">Student</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <input type="checkbox" id="isPep" {...regProf('isPep')} className="w-4 h-4 accent-sparrow-blue" />
+                    <label htmlFor="isPep" className="text-sm text-slate-700">Politically Exposed Person</label>
+                  </div>
                 </div>
               </div>
 
               <div>
-                <label className="field-label">Account Holder Name <span className="text-red-500">*</span></label>
-                <input
-                  value={bank.accountHolder}
-                  onChange={(e) => { setBank((b) => ({ ...b, accountHolder: e.target.value })); setBankErrors((er) => ({ ...er, accountHolder: '' })) }}
-                  placeholder="Name as on bank account"
-                  className="input-field"
-                />
-                {bankErrors.accountHolder && <p className="err">{bankErrors.accountHolder}</p>}
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Personal Information</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="field-label">Gender *</label>
+                    <select {...regProf('gender')} className="input-field">
+                      <option value="M">Male</option>
+                      <option value="F">Female</option>
+                      <option value="T">Transgender</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">Marital Status</label>
+                    <select {...regProf('maritalStatus')} className="input-field">
+                      <option value="">Select</option>
+                      <option value="SINGLE">Single</option>
+                      <option value="MARRIED">Married</option>
+                      <option value="WIDOWED">Widowed</option>
+                      <option value="DIVORCED">Divorced</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">Place of Birth</label>
+                    <input {...regProf('placeOfBirth')} placeholder="City / Town" className="input-field" />
+                  </div>
+                  <div>
+                    <label className="field-label">Father / Spouse Name *</label>
+                    <input {...regProf('fatherOrSpouseName')} placeholder="Father or spouse name" className="input-field" />
+                    {profErr.fatherOrSpouseName && <p className="err">{profErr.fatherOrSpouseName.message}</p>}
+                  </div>
+                  <div>
+                    <label className="field-label">Mother's Name</label>
+                    <input {...regProf('motherName')} placeholder="Mother's name" className="input-field" />
+                  </div>
+                </div>
               </div>
+
+              <div className="flex gap-3 pt-1">
+                <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
+                  {saving && <Loader2 size={14} className="animate-spin" />} Save Profile
+                </button>
+                <button type="button" onClick={() => setEditing(null)} className="px-4 py-2 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+              <FieldRow label="Name as on PAN"    value={profile?.fullNameAsPan} />
+              <FieldRow label="PAN"               value={profile?.panNumber} />
+              <FieldRow label="Date of Birth"     value={profile?.dob ? new Date(profile.dob).toLocaleDateString('en-IN') : undefined} />
+              <FieldRow label="Occupation"        value={profile?.occupation ? OCCUPATIONS[profile.occupation] : undefined} />
+              <FieldRow label="Annual Income"     value={profile?.annualIncome ? (INCOMES[profile.annualIncome] ?? profile.annualIncome) : undefined} />
+              <FieldRow label="Tax Status"        value={profile?.taxStatus} />
+              <FieldRow label="Holding Type"      value={profile?.holdingType ? (HOLDING[profile.holdingType] ?? profile.holdingType) : 'Single'} />
+              <FieldRow label="Political Exposure" value={profile ? (profile.isPep ? 'Yes' : 'No') : undefined} />
             </div>
           )}
         </div>
-      )}
 
-      {/* ── Save button ── */}
-      <div className="sticky bottom-4">
-        <button
-          type="submit"
-          disabled={saving}
-          className="btn-primary w-full py-3.5 text-base font-semibold shadow-lg"
-        >
-          {saving
-            ? <span className="flex items-center justify-center gap-2"><Loader2 size={20} className="animate-spin" /> Saving Profile…</span>
-            : 'Save UCC Profile →'}
+        {/* ── Personal Details card ── */}
+        <div className="card">
+          <CardHeader
+            icon={<User size={14} />}
+            title="Personal Details"
+            editing={editing === 'profile'}
+            onEdit={() => setEditing(editing === 'profile' ? null : 'profile')}
+          />
+          {editing === 'profile' ? (
+            <div className="flex items-center justify-center h-32 text-sm text-slate-400 text-center">
+              ← Complete all fields in the<br />PAN Details card and save
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+              <FieldRow label="Mobile"          value={userInfo?.phone} />
+              <FieldRow label="Email ID"        value={userInfo?.email} />
+              <FieldRow label="Gender"          value={profile?.gender ? GENDERS[profile.gender] : undefined} />
+              <FieldRow label="Marital Status"  value={profile?.maritalStatus ? (MARITAL[profile.maritalStatus] ?? profile.maritalStatus) : undefined} />
+              <FieldRow label="Place of Birth"  value={profile?.placeOfBirth} />
+              <FieldRow label="Father / Spouse" value={profile?.fatherOrSpouseName} />
+              <FieldRow label="Mother's Name"   value={profile?.motherName} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════
+          ROW 2 — Address Details  |  Nominee Details
+      ════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        {/* ── Address card ── */}
+        <div className="card">
+          <CardHeader
+            icon={<MapPin size={14} />}
+            title="Address Details"
+            editing={editing === 'address'}
+            onEdit={() => setEditing(editing === 'address' ? null : 'address')}
+          />
+          {editing === 'address' ? (
+            <AddressEditForm
+              permanent={permAddr}
+              correspondence={corrAddr}
+              onSave={async (perm, corr) => {
+                setSaving(true)
+                try {
+                  await onboardingService.saveAddress({ type: 'PERMANENT', ...perm })
+                  await onboardingService.saveAddress({ type: 'CORRESPONDENCE', ...corr })
+                  setAddresses([
+                    { type: 'PERMANENT',      ...perm },
+                    { type: 'CORRESPONDENCE', ...corr },
+                  ])
+                  setEditing(null)
+                  toast.success('Address saved!')
+                } catch (e: any) {
+                  toast.error(e?.response?.data?.message ?? 'Could not save address')
+                } finally { setSaving(false) }
+              }}
+              saving={saving}
+              onCancel={() => setEditing(null)}
+            />
+          ) : permAddr ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-[10px] font-bold text-sparrow-blue uppercase tracking-widest mb-2">Permanent Address</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <FieldRow label="Line 1"   value={permAddr.addressLine1} />
+                  <FieldRow label="Line 2"   value={permAddr.addressLine2} />
+                  <FieldRow label="City"     value={permAddr.city} />
+                  <FieldRow label="State"    value={permAddr.state} />
+                  <FieldRow label="Pin Code" value={permAddr.pincode} />
+                  <FieldRow label="Country"  value={permAddr.country} />
+                </div>
+              </div>
+              {corrAddr && corrAddr.addressLine1 !== permAddr.addressLine1 && (
+                <div className="border-t border-slate-100 pt-4">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Correspondence</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <FieldRow label="Line 1"   value={corrAddr.addressLine1} />
+                    <FieldRow label="City"     value={corrAddr.city} />
+                    <FieldRow label="State"    value={corrAddr.state} />
+                    <FieldRow label="Pin Code" value={corrAddr.pincode} />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 py-8 text-center">No address added yet</p>
+          )}
+        </div>
+
+        {/* ── Nominee card ── */}
+        <div className="card">
+          <CardHeader
+            icon={<Users size={14} />}
+            title="Nominee Details"
+            editing={editing === 'nominee'}
+            onEdit={() => setEditing(editing === 'nominee' ? null : 'nominee')}
+          />
+          {editing === 'nominee' ? (
+            <NomineeEditForm
+              initial={nominees}
+              onSave={async (noms) => {
+                setSaving(true)
+                try {
+                  await onboardingService.saveNominees(noms)
+                  setNominees(noms)
+                  setEditing(null)
+                  toast.success('Nominees saved!')
+                } catch (e: any) {
+                  toast.error(e?.response?.data?.message ?? 'Could not save nominees')
+                } finally { setSaving(false) }
+              }}
+              saving={saving}
+              onCancel={() => setEditing(null)}
+            />
+          ) : nominees.length > 0 ? (
+            <div className="space-y-4">
+              {nominees.map((n, i) => (
+                <div key={i} className={i > 0 ? 'border-t border-slate-100 pt-4' : ''}>
+                  <p className="text-[10px] font-bold text-sparrow-blue uppercase tracking-widest mb-2">Nominee {i + 1}</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <FieldRow label="Name"      value={n.fullName} />
+                    <FieldRow label="Relation"  value={n.relationship ? n.relationship.charAt(0) + n.relationship.slice(1).toLowerCase() : undefined} />
+                    <FieldRow label="DOB"       value={n.dob ? new Date(n.dob).toLocaleDateString('en-IN') : undefined} />
+                    <FieldRow label="Share"     value={`${n.percentage}%`} />
+                    <FieldRow label="ID Type"   value={n.docType} />
+                    <FieldRow label="ID Number" value={n.docNumber} />
+                    <FieldRow label="Email"     value={n.email} />
+                    <FieldRow label="Phone"     value={n.phone} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 py-8 text-center">No nominees added yet</p>
+          )}
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════
+          ROW 3 — Bank Details
+      ════════════════════════════════════════════════ */}
+      <div className="card">
+        <CardHeader
+          icon={<Building2 size={14} />}
+          title="Bank Details"
+          editing={editing === 'bank'}
+          onEdit={() => setEditing(editing === 'bank' ? null : 'bank')}
+        />
+        {editing === 'bank' ? (
+          <BankEditForm
+            accounts={bankAccounts}
+            onAdded={(acc) => { setBankAccounts((p) => [...p, acc]); setEditing(null) }}
+            onDeleted={(id) => setBankAccounts((p) => p.filter((a) => a.id !== id))}
+            onCancel={() => setEditing(null)}
+          />
+        ) : bankAccounts.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {bankAccounts.map((acc) => (
+              <div key={acc.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                {acc.isDefault && (
+                  <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full mb-3">
+                    <CheckCircle2 size={10} /> Primary Account
+                  </span>
+                )}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-1">
+                  <FieldRow label="Account No."    value={acc.accountNumber ? `••••${acc.accountNumber.slice(-4)}` : undefined} />
+                  <FieldRow label="IFSC"           value={acc.ifscCode} />
+                  <FieldRow label="Account Type"   value={acc.accountType === 'SB' ? 'Savings' : acc.accountType === 'CB' ? 'Current' : acc.accountType} />
+                  <FieldRow label="Bank"           value={acc.bankName} />
+                  <FieldRow label="Account Holder" value={acc.accountHolder} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 py-8 text-center">No bank account added yet</p>
+        )}
+      </div>
+
+      {/* Back to status */}
+      {!editing && (
+        <div className="flex justify-end pt-2">
+          <button type="button" onClick={() => navigate('/onboarding/status')} className="btn-primary">
+            Back to Status
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ADDRESS EDIT FORM
+// ═══════════════════════════════════════════════════════════
+
+type AddrForm = Omit<AddressData, 'type'>
+const emptyAddr = (): AddrForm => ({
+  addressLine1: '', addressLine2: '', city: '', district: '',
+  state: '', pincode: '', country: 'India',
+})
+
+function AddressEditForm({
+  permanent, correspondence, onSave, saving, onCancel,
+}: {
+  permanent?:      AddressData
+  correspondence?: AddressData
+  onSave:   (perm: AddrForm, corr: AddrForm) => Promise<void>
+  saving:   boolean
+  onCancel: () => void
+}) {
+  const [perm, setPerm] = useState<AddrForm>({ ...emptyAddr(), ...(permanent      ? { ...permanent }      : {}) })
+  const [corr, setCorr] = useState<AddrForm>({ ...emptyAddr(), ...(correspondence ? { ...correspondence } : {}) })
+  const [same, setSame] = useState(false)
+  const [errs, setErrs] = useState<Record<string, string>>({})
+
+  function setF(which: 'perm' | 'corr', key: keyof AddrForm, val: string) {
+    if (which === 'perm') setPerm((p) => ({ ...p, [key]: val }))
+    else                  setCorr((p) => ({ ...p, [key]: val }))
+    setErrs((e) => { const n = { ...e }; delete n[`${which}.${key}`]; return n })
+  }
+
+  function validate() {
+    const e: Record<string, string> = {}
+    const check = (f: AddrForm, pfx: string) => {
+      if (!f.addressLine1.trim())      e[`${pfx}.addressLine1`] = 'Required'
+      if (!f.city.trim())              e[`${pfx}.city`]         = 'Required'
+      if (!f.state)                    e[`${pfx}.state`]        = 'Required'
+      if (!/^\d{6}$/.test(f.pincode)) e[`${pfx}.pincode`]      = '6-digit pincode'
+    }
+    check(perm, 'perm')
+    if (!same) check(corr, 'corr')
+    setErrs(e)
+    return Object.keys(e).length === 0
+  }
+
+  function handleSubmit(evt: React.FormEvent) {
+    evt.preventDefault()
+    if (!validate()) return
+    onSave(perm, same ? { ...perm } : corr)
+  }
+
+  function AddrBlock({ which, data, label }: { which: 'perm' | 'corr'; data: AddrForm; label: string }) {
+    return (
+      <div>
+        <p className="text-[10px] font-bold text-sparrow-blue uppercase tracking-widest mb-3">{label}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2">
+            <label className="field-label">Line 1 *</label>
+            <input value={data.addressLine1} onChange={(e) => setF(which, 'addressLine1', e.target.value)} className="input-field" />
+            {errs[`${which}.addressLine1`] && <p className="err">{errs[`${which}.addressLine1`]}</p>}
+          </div>
+          <div className="sm:col-span-2">
+            <label className="field-label">Line 2</label>
+            <input value={data.addressLine2 ?? ''} onChange={(e) => setF(which, 'addressLine2', e.target.value)} className="input-field" />
+          </div>
+          <div>
+            <label className="field-label">City *</label>
+            <input value={data.city} onChange={(e) => setF(which, 'city', e.target.value)} className="input-field" />
+            {errs[`${which}.city`] && <p className="err">{errs[`${which}.city`]}</p>}
+          </div>
+          <div>
+            <label className="field-label">State *</label>
+            <select value={data.state} onChange={(e) => setF(which, 'state', e.target.value)} className="input-field">
+              <option value="">Select state</option>
+              {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {errs[`${which}.state`] && <p className="err">{errs[`${which}.state`]}</p>}
+          </div>
+          <div>
+            <label className="field-label">Pin Code *</label>
+            <input value={data.pincode} maxLength={6} onChange={(e) => setF(which, 'pincode', e.target.value)} className="input-field" />
+            {errs[`${which}.pincode`] && <p className="err">{errs[`${which}.pincode`]}</p>}
+          </div>
+          <div>
+            <label className="field-label">Country</label>
+            <input value={data.country} onChange={(e) => setF(which, 'country', e.target.value)} className="input-field" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5 pt-1">
+      <AddrBlock which="perm" data={perm} label="Permanent Address" />
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={same} onChange={(e) => setSame(e.target.checked)} className="w-4 h-4 accent-sparrow-blue" />
+        <span className="text-sm text-slate-700">Correspondence same as Permanent</span>
+      </label>
+      {!same && <AddrBlock which="corr" data={corr} label="Correspondence Address" />}
+      <div className="flex gap-3">
+        <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
+          {saving && <Loader2 size={14} className="animate-spin" />} Save Address
         </button>
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">Cancel</button>
       </div>
     </form>
   )
 }
 
-// ─── Reusable address block ───────────────────────────────
-function AddressBlock({
-  prefix, form, errors,
-  onChange,
+// ═══════════════════════════════════════════════════════════
+//  NOMINEE EDIT FORM
+// ═══════════════════════════════════════════════════════════
+
+const emptyNominee = (): NomineeData => ({
+  fullName: '', relationship: '', dob: '', percentage: 100,
+  guardianName: '', guardianRel: '', docType: '', docNumber: '', email: '', phone: '',
+})
+
+function NomineeEditForm({
+  initial, onSave, saving, onCancel,
 }: {
-  prefix:   string
-  form:     AddressForm
-  errors:   Record<string, string>
-  onChange: (field: keyof AddressForm, value: string) => void
+  initial:  NomineeData[]
+  onSave:   (noms: NomineeData[]) => Promise<void>
+  saving:   boolean
+  onCancel: () => void
 }) {
-  const err = (f: string) => errors[`${prefix}.${f}`]
+  const [noms, setNoms] = useState<NomineeData[]>(initial.length > 0 ? initial : [emptyNominee()])
+  const [errs, setErrs] = useState<Record<string, string>>({})
+  const total = noms.reduce((s, n) => s + Number(n.percentage || 0), 0)
+
+  function set(i: number, key: keyof NomineeData, val: string | number) {
+    setNoms((p) => { const n = [...p]; n[i] = { ...n[i], [key]: val }; return n })
+    setErrs((e) => { const n = { ...e }; delete n[`${i}.${key}`]; return n })
+  }
+
+  function addNom() {
+    if (noms.length >= 3) return
+    setNoms((p) => [...p, { ...emptyNominee(), percentage: Math.max(0, 100 - total) }])
+  }
+
+  function removeNom(i: number) {
+    if (noms.length === 1) return
+    const removed = Number(noms[i].percentage)
+    const next = noms.filter((_, idx) => idx !== i)
+    next[0] = { ...next[0], percentage: Number(next[0].percentage) + removed }
+    setNoms(next)
+  }
+
+  function validate() {
+    const e: Record<string, string> = {}
+    noms.forEach((n, i) => {
+      if (!n.fullName.trim())       e[`${i}.fullName`]     = 'Required'
+      if (!n.relationship)          e[`${i}.relationship`] = 'Required'
+      if (Number(n.percentage) < 1) e[`${i}.percentage`]   = 'Min 1%'
+      if (n.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(n.email)) e[`${i}.email`] = 'Invalid email'
+      if (n.phone && !/^\d{10}$/.test(String(n.phone)))             e[`${i}.phone`] = '10 digits required'
+      if (isMinor(n.dob) && !n.guardianName?.trim()) e[`${i}.guardianName`] = 'Guardian required for minor'
+    })
+    if (total !== 100) e['total'] = `Percentages must total 100% (currently ${total}%)`
+    setErrs(e)
+    return Object.keys(e).length === 0
+  }
+
+  function handleSubmit(evt: React.FormEvent) {
+    evt.preventDefault()
+    if (!validate()) return
+    onSave(noms.map((n) => ({
+      ...n,
+      dob:         n.dob         || undefined,
+      guardianName: n.guardianName || undefined,
+      guardianRel:  n.guardianRel  || undefined,
+      docType:      n.docType      || undefined,
+      docNumber:    n.docNumber    || undefined,
+      email:        n.email        || undefined,
+      phone:        n.phone        || undefined,
+    })))
+  }
+
   return (
-    <div className="space-y-3">
-      <div>
-        <label className="field-label">Address Line 1 <span className="text-red-500">*</span></label>
-        <input className="input-field" placeholder="House No., Street Name" value={form.addressLine1} onChange={(e) => onChange('addressLine1', e.target.value)} maxLength={200} />
-        {err('addressLine1') && <p className="err">{err('addressLine1')}</p>}
-      </div>
-      <div>
-        <label className="field-label">Address Line 2</label>
-        <input className="input-field" placeholder="Landmark, Area (optional)" value={form.addressLine2} onChange={(e) => onChange('addressLine2', e.target.value)} maxLength={200} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="field-label">City <span className="text-red-500">*</span></label>
-          <input className="input-field" placeholder="Mumbai" value={form.city} onChange={(e) => onChange('city', e.target.value)} />
-          {err('city') && <p className="err">{err('city')}</p>}
+    <form onSubmit={handleSubmit} className="space-y-5 pt-1">
+      {noms.map((n, i) => (
+        <div key={i} className={`space-y-3 ${i > 0 ? 'border-t border-slate-100 pt-4' : ''}`}>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold text-sparrow-blue uppercase tracking-widest">Nominee {i + 1}</p>
+            {noms.length > 1 && (
+              <button type="button" onClick={() => removeNom(i)} className="text-red-400 hover:text-red-600 p-1">
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="field-label">Full Name *</label>
+              <input value={n.fullName} onChange={(e) => set(i, 'fullName', e.target.value)} className="input-field" />
+              {errs[`${i}.fullName`] && <p className="err">{errs[`${i}.fullName`]}</p>}
+            </div>
+            <div>
+              <label className="field-label">Relationship *</label>
+              <select value={n.relationship} onChange={(e) => set(i, 'relationship', e.target.value)} className="input-field">
+                <option value="">Select</option>
+                {RELATIONSHIPS.map((r) => <option key={r} value={r}>{r.charAt(0) + r.slice(1).toLowerCase()}</option>)}
+              </select>
+              {errs[`${i}.relationship`] && <p className="err">{errs[`${i}.relationship`]}</p>}
+            </div>
+            <div>
+              <label className="field-label">Date of Birth</label>
+              <DateInput value={n.dob ?? ''} onChange={(v) => set(i, 'dob', v)} />
+            </div>
+            <div>
+              <label className="field-label">Share % *</label>
+              <input
+                type="number" min={1} max={100}
+                value={n.percentage}
+                onChange={(e) => set(i, 'percentage', Number(e.target.value))}
+                className="input-field"
+              />
+              {errs[`${i}.percentage`] && <p className="err">{errs[`${i}.percentage`]}</p>}
+            </div>
+            <div>
+              <label className="field-label">Identity Type</label>
+              <select value={n.docType ?? ''} onChange={(e) => set(i, 'docType', e.target.value)} className="input-field">
+                <option value="">Select</option>
+                <option value="AADHAAR">Aadhaar</option>
+                <option value="PAN">PAN</option>
+                <option value="PASSPORT">Passport</option>
+                <option value="VOTER_ID">Voter ID</option>
+                <option value="DRIVING_LICENSE">Driving License</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Identity Number</label>
+              <input value={n.docNumber ?? ''} onChange={(e) => set(i, 'docNumber', e.target.value)} className="input-field" />
+            </div>
+            <div>
+              <label className="field-label">Email</label>
+              <input type="email" value={n.email ?? ''} onChange={(e) => set(i, 'email', e.target.value)} className="input-field" placeholder="nominee@email.com" />
+              {errs[`${i}.email`] && <p className="err">{errs[`${i}.email`]}</p>}
+            </div>
+            <div>
+              <label className="field-label">Phone Number</label>
+              <input type="tel" value={n.phone ?? ''} maxLength={10} onChange={(e) => set(i, 'phone', e.target.value)} className="input-field" placeholder="10-digit mobile" />
+              {errs[`${i}.phone`] && <p className="err">{errs[`${i}.phone`]}</p>}
+            </div>
+            {isMinor(n.dob) && (
+              <>
+                <div>
+                  <label className="field-label">Guardian Name *</label>
+                  <input value={n.guardianName ?? ''} onChange={(e) => set(i, 'guardianName', e.target.value)} className="input-field" />
+                  {errs[`${i}.guardianName`] && <p className="err">{errs[`${i}.guardianName`]}</p>}
+                </div>
+                <div>
+                  <label className="field-label">Guardian Relation</label>
+                  <input value={n.guardianRel ?? ''} onChange={(e) => set(i, 'guardianRel', e.target.value)} className="input-field" />
+                </div>
+              </>
+            )}
+          </div>
         </div>
-        <div>
-          <label className="field-label">District</label>
-          <input className="input-field" placeholder="Optional" value={form.district} onChange={(e) => onChange('district', e.target.value)} />
-        </div>
+      ))}
+
+      {errs['total'] && <p className="text-red-500 text-sm font-medium">{errs['total']}</p>}
+      <div className="flex items-center justify-between text-sm">
+        <span className={`font-medium ${total === 100 ? 'text-emerald-600' : 'text-amber-500'}`}>
+          Total: {total}% {total === 100 ? '✓' : ''}
+        </span>
+        {noms.length < 3 && (
+          <button type="button" onClick={addNom} className="flex items-center gap-1.5 text-sparrow-blue hover:text-blue-700">
+            <Plus size={14} /> Add Nominee
+          </button>
+        )}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="field-label">State <span className="text-red-500">*</span></label>
-          <select className="input-field" value={form.state} onChange={(e) => onChange('state', e.target.value)}>
-            <option value="">Select state</option>
-            {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          {err('state') && <p className="err">{err('state')}</p>}
-        </div>
-        <div>
-          <label className="field-label">Pincode <span className="text-red-500">*</span></label>
-          <input className="input-field" placeholder="6-digit pincode" maxLength={6} value={form.pincode} onChange={(e) => onChange('pincode', e.target.value.replace(/\D/g, ''))} />
-          {err('pincode') && <p className="err">{err('pincode')}</p>}
-        </div>
+
+      <div className="flex gap-3">
+        <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
+          {saving && <Loader2 size={14} className="animate-spin" />} Save Nominees
+        </button>
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">Cancel</button>
       </div>
+    </form>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BANK EDIT FORM
+// ═══════════════════════════════════════════════════════════
+
+function BankEditForm({
+  accounts, onAdded, onDeleted, onCancel,
+}: {
+  accounts:  BankData[]
+  onAdded:   (acc: BankData) => void
+  onDeleted: (id: string)   => void
+  onCancel:  () => void
+}) {
+  const [bank, setBank]     = useState({ accountNumber: '', ifscCode: '', bankName: '', accountHolder: '', accountType: 'SB' })
+  const [errs, setErrs]     = useState<Partial<typeof bank>>({})
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  function setF(key: keyof typeof bank, val: string) {
+    setBank((p) => ({ ...p, [key]: val }))
+    setErrs((e) => { const n = { ...e }; delete n[key]; return n })
+  }
+
+  function validate() {
+    const e: Partial<typeof bank> = {}
+    if (!/^\d{9,18}$/.test(bank.accountNumber))                       e.accountNumber = '9–18 digits required'
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bank.ifscCode.toUpperCase())) e.ifscCode      = 'Invalid IFSC (e.g. SBIN0001234)'
+    if (!bank.bankName.trim())                                         e.bankName      = 'Required'
+    if (!bank.accountHolder.trim())                                    e.accountHolder = 'Required'
+    setErrs(e)
+    return Object.keys(e).length === 0
+  }
+
+  async function handleAdd(evt: React.FormEvent) {
+    evt.preventDefault()
+    if (!validate()) return
+    setSaving(true)
+    try {
+      const res = await bankService.addAccount({
+        ...bank,
+        ifscCode:  bank.ifscCode.toUpperCase(),
+        isDefault: accounts.length === 0,
+      })
+      onAdded(res.data ?? res)
+      toast.success('Bank account added!')
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Could not add bank account')
+    } finally { setSaving(false) }
+  }
+
+  async function handleDelete(id: string) {
+    setDeleting(id)
+    try {
+      await bankService.deleteAccount(id)
+      onDeleted(id)
+    } catch {
+      toast.error('Could not remove account')
+    } finally { setDeleting(null) }
+  }
+
+  return (
+    <div className="space-y-5 pt-1">
+      {accounts.length > 0 && (
+        <div className="space-y-2">
+          {accounts.map((acc) => (
+            <div key={acc.id} className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+              <div>
+                <p className="text-sm font-medium text-slate-800">
+                  {acc.bankName} — ••••{acc.accountNumber.slice(-4)}
+                  {acc.isDefault && (
+                    <span className="ml-2 text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Primary</span>
+                  )}
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {acc.ifscCode} · {acc.accountType === 'SB' ? 'Savings' : acc.accountType === 'CB' ? 'Current' : acc.accountType}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => acc.id && handleDelete(acc.id)}
+                disabled={deleting === acc.id}
+                className="text-red-400 hover:text-red-600 p-1.5"
+              >
+                {deleting === acc.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={handleAdd} className="space-y-4">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Add Bank Account</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="field-label">Account Number *</label>
+            <input value={bank.accountNumber} onChange={(e) => setF('accountNumber', e.target.value)} className="input-field" placeholder="9–18 digit account number" />
+            {errs.accountNumber && <p className="err">{errs.accountNumber}</p>}
+          </div>
+          <div>
+            <label className="field-label">IFSC Code *</label>
+            <input value={bank.ifscCode} onChange={(e) => setF('ifscCode', e.target.value.toUpperCase())} className="input-field uppercase" placeholder="SBIN0001234" />
+            {errs.ifscCode && <p className="err">{errs.ifscCode}</p>}
+          </div>
+          <div>
+            <label className="field-label">Bank Name *</label>
+            <input value={bank.bankName} onChange={(e) => setF('bankName', e.target.value)} className="input-field" placeholder="State Bank of India" />
+            {errs.bankName && <p className="err">{errs.bankName}</p>}
+          </div>
+          <div>
+            <label className="field-label">Account Holder *</label>
+            <input value={bank.accountHolder} onChange={(e) => setF('accountHolder', e.target.value)} className="input-field" placeholder="Name as on bank records" />
+            {errs.accountHolder && <p className="err">{errs.accountHolder}</p>}
+          </div>
+          <div>
+            <label className="field-label">Account Type</label>
+            <select value={bank.accountType} onChange={(e) => setF('accountType', e.target.value)} className="input-field">
+              <option value="SB">Savings</option>
+              <option value="CB">Current</option>
+              <option value="NRE">NRE</option>
+              <option value="NRO">NRO</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            <CreditCard size={14} /> Add Account
+          </button>
+          <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">Done</button>
+        </div>
+      </form>
     </div>
   )
 }

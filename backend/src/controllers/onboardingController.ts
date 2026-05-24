@@ -7,6 +7,7 @@ import {
   saveAddress,
   getAddresses,
   saveNominees,
+  getNominees,
   submitNseMfOnboarding,
   getOnboardingStatus,
 } from '../services/clientProfileService';
@@ -97,6 +98,16 @@ export async function fetchAddresses(req: AuthRequest, res: Response) {
   try {
     const addresses = await getAddresses(req.user!.userId);
     res.json({ success: true, data: addresses });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+}
+
+// ─── GET /onboarding/nominees ────────────────────────────
+export async function fetchNominees(req: AuthRequest, res: Response) {
+  try {
+    const nominees = await getNominees(req.user!.userId);
+    res.json({ success: true, data: nominees });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });
   }

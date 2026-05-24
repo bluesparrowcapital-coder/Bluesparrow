@@ -199,7 +199,9 @@ model ClientProfile {
   gender              String              // M / F / T
   fatherOrSpouseName  String
   motherName          String?
-  maritalStatus       String?             // SINGLE / MARRIED
+  placeOfBirth        String?             // City/town of birth
+  maritalStatus       String?             // SINGLE / MARRIED / WIDOWED / DIVORCED
+  holdingType         String?             @default("SINGLE") // SINGLE / JOINT / ANYONE_OR_SURVIVOR
   occupation          String              // BUSINESS / SERVICE / PROFESSIONAL / etc.
   taxStatus           TaxStatus           @default(INDIVIDUAL)
   annualIncome        String?             // income slab: <1L / 1-5L / 5-10L etc.
@@ -268,6 +270,8 @@ model Nominee {
   guardianRel  String?
   docType      String?  // AADHAAR / PAN / PASSPORT / VOTER_ID / DRIVING_LICENSE
   docNumber    String?
+  email        String?
+  phone        String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
