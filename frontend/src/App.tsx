@@ -19,6 +19,15 @@ import FundDetailPage from './pages/explore/FundDetailPage'
 import InvestPage     from './pages/explore/InvestPage'
 import PortfolioPage  from './pages/portfolio/PortfolioPage'
 
+// Phase 3 — SIP, Goals, Analytics, Redemption, Notifications
+import SipListPage        from './pages/sip/SipListPage'
+import CreateSipPage      from './pages/sip/CreateSipPage'
+import GoalsPage          from './pages/goals/GoalsPage'
+import CreateGoalPage     from './pages/goals/CreateGoalPage'
+import AnalyticsPage      from './pages/portfolio/AnalyticsPage'
+import RedeemPage         from './pages/portfolio/RedeemPage'
+import NotificationsPage  from './pages/NotificationsPage'
+
 // Dashboard
 function DashboardPage() {
   return (
@@ -108,6 +117,21 @@ export default function App() {
 
       {/* Phase 2 — Portfolio */}
       <Route path="/portfolio"            element={<ProtectedLayout><PortfolioPage /></ProtectedLayout>} />
+
+      {/* Phase 3 — SIP */}
+      <Route path="/sip"                  element={<ProtectedLayout><SipListPage /></ProtectedLayout>} />
+      <Route path="/sip/create"           element={<ProtectedLayout><CreateSipPage /></ProtectedLayout>} />
+
+      {/* Phase 3 — Goals */}
+      <Route path="/goals"                element={<ProtectedLayout><GoalsPage /></ProtectedLayout>} />
+      <Route path="/goals/create"         element={<ProtectedLayout><CreateGoalPage /></ProtectedLayout>} />
+
+      {/* Phase 3 — Analytics & Redemption */}
+      <Route path="/analytics"            element={<ProtectedLayout><AnalyticsPage /></ProtectedLayout>} />
+      <Route path="/portfolio/redeem/:portfolioId" element={<ProtectedLayout><RedeemPage /></ProtectedLayout>} />
+
+      {/* Phase 3 — Notifications */}
+      <Route path="/notifications"        element={<ProtectedLayout><NotificationsPage /></ProtectedLayout>} />
 
       {/* 404 */}
       <Route path="*" element={<Navigate to="/auth/login" replace />} />

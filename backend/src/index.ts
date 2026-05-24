@@ -10,7 +10,12 @@ import onboardingRoutes from './routes/onboardingRoutes';
 import bankRoutes from './routes/bankRoutes';
 import fundRoutes from './routes/fundRoutes';
 import portfolioRoutes from './routes/portfolioRoutes';
+import sipRoutes from './routes/sipRoutes';
+import goalRoutes from './routes/goalRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 import { startNavCronJob } from './jobs/navUpdateJob';
+import { startSipProcessorJob } from './jobs/sipProcessorJob';
 
 dotenv.config();
 
@@ -36,11 +41,15 @@ app.get('/health', (_req, res) => {
 });
 
 // ─── Routes ────────────────────────────────────────────────
-app.use('/api/auth',       authRoutes);
-app.use('/api/onboarding', onboardingRoutes);
-app.use('/api/bank',       bankRoutes);
-app.use('/api/funds',      fundRoutes);
-app.use('/api/portfolio',  portfolioRoutes);
+app.use('/api/auth',           authRoutes);
+app.use('/api/onboarding',     onboardingRoutes);
+app.use('/api/bank',           bankRoutes);
+app.use('/api/funds',          fundRoutes);
+app.use('/api/portfolio',      portfolioRoutes);
+app.use('/api/sip',            sipRoutes);
+app.use('/api/goals',          goalRoutes);
+app.use('/api/analytics',      analyticsRoutes);
+app.use('/api/notifications',  notificationRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────
 app.use((_req, res) => {
@@ -58,6 +67,7 @@ async function start() {
   try {
     await connectRedis();
     startNavCronJob();
+    startSipProcessorJob();
     app.listen(PORT, () => {
       logger.info(`Server running on http://localhost:${PORT}`);
     });

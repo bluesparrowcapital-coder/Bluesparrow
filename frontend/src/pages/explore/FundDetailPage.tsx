@@ -213,11 +213,17 @@ export default function FundDetailPage() {
         )}
       </div>
 
-      {/* Sticky Invest button */}
-      <div className="fixed bottom-20 left-0 right-0 px-4 z-10">
+      {/* Sticky action buttons */}
+      <div className="fixed bottom-20 left-0 right-0 px-4 z-10 flex gap-2">
+        <button
+          onClick={() => navigate(`/sip/create?fundId=${fund.id}`)}
+          className="btn-secondary flex-1 text-sm py-3 shadow-lg"
+        >
+          Start SIP
+        </button>
         <button
           onClick={() => navigate(`/invest/${fund.id}`)}
-          className="btn-primary w-full text-base py-3 shadow-lg"
+          className="btn-primary flex-1 text-sm py-3 shadow-lg"
         >
           Invest Now
         </button>

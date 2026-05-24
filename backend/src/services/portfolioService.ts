@@ -164,6 +164,188 @@ export async function placeLumpsumOrder(input: LumpsumOrderInput) {
   };
 }
 
+// ─── Redeem Units ─────────────────────────────────────────
+
+export interface RedeemInput {
+  userId:          string;
+  portfolioId:     string;
+  units?:          number;  // if not provided, redeem all
+  isFullRedemption: boolean;
+}
+
+export async function redeemUnits(input: RedeemInput) {
+  const portfolio = await prisma.portfolio.findFirst({
+    where:   { id: input.portfolioId, userId: input.userId },
+    include: { fund: true },
+  });
+  if (!portfolio)              throw new Error('Portfolio holding not found');
+  if (portfolio.unitsHeld <= 0) throw new Error('No units to redeem');
+  if (!portfolio.fund.nav)     throw new Error('NAV not available');
+
+  const redeemUnitsCount = input.isFullRedemption ? portfolio.unitsHeld : (input.units ?? 0);
+  if (redeemUnitsCount <= 0)   throw new Error('Units to redeem must be greater than 0');
+  if (redeemUnitsCount > portfolio.unitsHeld)
+    throw new Error(`Cannot redeem ${redeemUnitsCount} units — only ${portfolio.unitsHeld.toFixed(4)} held`);
+
+  const nav          = portfolio.fund.nav;
+  const redeemAmount = Math.round(redeemUnitsCount * nav * 100) / 100;
+
+  const txn = await prisma.transaction.create({
+    data: {
+      userId:        input.userId,
+      fundId:        portfolio.fundId,
+      portfolioId:   portfolio.id,
+      type:          'SELL',
+      status:        'COMPLETED',
+      amount:        redeemAmount,
+      units:         redeemUnitsCount,
+      navAtTxn:      nav,
+      txnDate:       new Date(),
+      settlementDate: new Date(Date.now() + 3 * 86_400_000), // T+3 settlement
+      remarks:       input.isFullRedemption ? 'Full redemption' : `Partial redemption — ${redeemUnitsCount} units`,
+    },
+  });
+
+  const remaining = portfolio.unitsHeld - redeemUnitsCount;
+  if (remaining < 0.001) {
+    // Close out the holding
+    await prisma.portfolio.update({
+      where: { id: portfolio.id },
+      data:  { unitsHeld: 0, currentValue: 0, lastUpdated: new Date() },
+    });
+  } else {
+    // Adjust invested amount proportionally
+    const newInvested = (portfolio.investedAmount * remaining) / portfolio.unitsHeld;
+    await prisma.portfolio.update({
+      where: { id: portfolio.id },
+      data: {
+        unitsHeld:      remaining,
+        investedAmount: Math.round(newInvested * 100) / 100,
+        currentValue:   Math.round(remaining * nav * 100) / 100,
+        lastUpdated:    new Date(),
+      },
+    });
+  }
+
+  await prisma.notification.create({
+    data: {
+      userId: input.userId,
+      title:  'Redemption Placed',
+      body:   `Redeemed ${redeemUnitsCount.toFixed(4)} units of ${portfolio.fund.schemeName} for ₹${redeemAmount}. Amount credited in T+3 days.`,
+      type:   'TXN',
+    },
+  });
+
+  return {
+    transactionId:  txn.id,
+    fundName:       portfolio.fund.schemeName,
+    unitsRedeemed:  redeemUnitsCount,
+    nav,
+    redeemAmount,
+    settlementDate: txn.settlementDate,
+    status:         'COMPLETED',
+  };
+}
+
+// ─── Switch Fund ─────────────────────────────────────────
+
+export interface SwitchInput {
+  userId:          string;
+  fromPortfolioId: string;
+  toFundId:        string;
+  units?:          number;
+  isFullSwitch:    boolean;
+}
+
+export async function switchFund(input: SwitchInput) {
+  const fromPortfolio = await prisma.portfolio.findFirst({
+    where:   { id: input.fromPortfolioId, userId: input.userId },
+    include: { fund: true },
+  });
+  if (!fromPortfolio)              throw new Error('Source holding not found');
+  if (fromPortfolio.unitsHeld <= 0) throw new Error('No units to switch');
+  if (!fromPortfolio.fund.nav)      throw new Error('NAV not available for source fund');
+
+  const toFund = await prisma.fund.findUnique({ where: { id: input.toFundId } });
+  if (!toFund || !toFund.isActive) throw new Error('Target fund not found or inactive');
+  if (!toFund.nav)                  throw new Error('NAV not available for target fund');
+
+  const switchUnits  = input.isFullSwitch ? fromPortfolio.unitsHeld : (input.units ?? 0);
+  if (switchUnits <= 0) throw new Error('Units to switch must be greater than 0');
+  if (switchUnits > fromPortfolio.unitsHeld) throw new Error('Insufficient units');
+
+  const switchAmount = Math.round(switchUnits * fromPortfolio.fund.nav * 100) / 100;
+  const toUnits      = Math.round((switchAmount / toFund.nav) * 10000) / 10000;
+
+  // SWITCH_OUT from source
+  await prisma.transaction.create({
+    data: {
+      userId: input.userId, fundId: fromPortfolio.fundId, portfolioId: fromPortfolio.id,
+      type: 'SWITCH_OUT', status: 'COMPLETED',
+      amount: switchAmount, units: switchUnits, navAtTxn: fromPortfolio.fund.nav,
+      txnDate: new Date(), remarks: `Switch to ${toFund.schemeName}`,
+    },
+  });
+
+  // Update source portfolio
+  const remaining = fromPortfolio.unitsHeld - switchUnits;
+  const newInvested = remaining < 0.001 ? 0 : (fromPortfolio.investedAmount * remaining) / fromPortfolio.unitsHeld;
+  await prisma.portfolio.update({
+    where: { id: fromPortfolio.id },
+    data: {
+      unitsHeld: remaining < 0.001 ? 0 : remaining,
+      investedAmount: Math.round(newInvested * 100) / 100,
+      currentValue: Math.round(remaining * fromPortfolio.fund.nav * 100) / 100,
+      lastUpdated: new Date(),
+    },
+  });
+
+  // SWITCH_IN to target — upsert target portfolio
+  const existing = await prisma.portfolio.findFirst({ where: { userId: input.userId, fundId: input.toFundId } });
+  let toPortfolio;
+  if (existing) {
+    const newUnits    = existing.unitsHeld + toUnits;
+    const newInvested2 = existing.investedAmount + switchAmount;
+    toPortfolio = await prisma.portfolio.update({
+      where: { id: existing.id },
+      data: { unitsHeld: newUnits, investedAmount: Math.round(newInvested2 * 100) / 100,
+              avgNav: newInvested2 / newUnits, currentValue: Math.round(newUnits * toFund.nav * 100) / 100, lastUpdated: new Date() },
+    });
+  } else {
+    toPortfolio = await prisma.portfolio.create({
+      data: { userId: input.userId, fundId: input.toFundId, unitsHeld: toUnits, investedAmount: switchAmount,
+              avgNav: toFund.nav, currentValue: Math.round(toUnits * toFund.nav * 100) / 100, lastUpdated: new Date() },
+    });
+  }
+
+  await prisma.transaction.create({
+    data: {
+      userId: input.userId, fundId: input.toFundId, portfolioId: toPortfolio.id,
+      type: 'SWITCH_IN', status: 'COMPLETED',
+      amount: switchAmount, units: toUnits, navAtTxn: toFund.nav,
+      txnDate: new Date(), remarks: `Switch from ${fromPortfolio.fund.schemeName}`,
+    },
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: input.userId,
+      title: 'Switch Placed',
+      body: `Switched ${switchUnits} units from ${fromPortfolio.fund.schemeName} → ${toFund.schemeName}.`,
+      type: 'TXN',
+    },
+  });
+
+  return {
+    fromFund:     fromPortfolio.fund.schemeName,
+    toFund:       toFund.schemeName,
+    switchAmount,
+    switchUnits,
+    toUnits,
+    status:       'COMPLETED',
+  };
+}
+
 // ─── Update portfolio current values (run after NAV refresh) ──
 
 export async function refreshPortfolioValues() {

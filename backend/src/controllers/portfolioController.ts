@@ -4,6 +4,8 @@ import {
   getPortfolioSummary,
   getTransactions,
   placeLumpsumOrder,
+  redeemUnits,
+  switchFund,
 } from '../services/portfolioService';
 
 // GET /api/portfolio
@@ -49,6 +51,38 @@ export async function invest(req: AuthRequest, res: Response): Promise<void> {
     res.json({ success: true, data: result });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Investment failed';
+    res.status(400).json({ success: false, message });
+  }
+}
+
+// POST /api/portfolio/redeem
+export async function redeem(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const { portfolioId, units, isFullRedemption } = req.body;
+    if (!portfolioId) { res.status(400).json({ success: false, message: 'portfolioId is required' }); return; }
+
+    const result = await redeemUnits({ userId, portfolioId, units: units ? parseFloat(units) : undefined, isFullRedemption: !!isFullRedemption });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Redemption failed';
+    res.status(400).json({ success: false, message });
+  }
+}
+
+// POST /api/portfolio/switch
+export async function switchHolding(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const { fromPortfolioId, toFundId, units, isFullSwitch } = req.body;
+    if (!fromPortfolioId || !toFundId) {
+      res.status(400).json({ success: false, message: 'fromPortfolioId and toFundId are required' }); return;
+    }
+
+    const result = await switchFund({ userId, fromPortfolioId, toFundId, units: units ? parseFloat(units) : undefined, isFullSwitch: !!isFullSwitch });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Switch failed';
     res.status(400).json({ success: false, message });
   }
 }

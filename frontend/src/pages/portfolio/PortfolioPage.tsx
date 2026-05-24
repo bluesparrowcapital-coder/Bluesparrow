@@ -1,6 +1,6 @@
 import { useState, useEffect }         from 'react'
 import { useNavigate }                  from 'react-router-dom'
-import { TrendingUp, TrendingDown, RefreshCw, Receipt } from 'lucide-react'
+import { TrendingUp, TrendingDown, RefreshCw, Receipt, BarChart2, ArrowDownCircle } from 'lucide-react'
 import { portfolioService, type Holding, type PortfolioSummary, type Transaction }
   from '../../services/fundService'
 import { format }                       from 'date-fns'
@@ -92,13 +92,22 @@ export default function PortfolioPage() {
           <h1 className="text-2xl font-bold text-gray-900">My Portfolio</h1>
           <p className="text-xs text-gray-400 mt-0.5">Live values · NAV synced daily</p>
         </div>
-        <button
-          onClick={() => loadPortfolio(true)}
-          disabled={refreshing}
-          className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
-        >
-          <RefreshCw size={16} className={refreshing ? 'animate-spin text-sparrow-blue' : 'text-gray-500'} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/analytics')}
+            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+            title="Analytics"
+          >
+            <BarChart2 size={16} className="text-sparrow-blue" />
+          </button>
+          <button
+            onClick={() => loadPortfolio(true)}
+            disabled={refreshing}
+            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin text-sparrow-blue' : 'text-gray-500'} />
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -186,11 +195,17 @@ export default function PortfolioPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between text-xs text-gray-500">
+                    <div className="mt-3 pt-3 border-t border-gray-50 flex justify-between items-center text-xs text-gray-500">
                       <span>Invested: {fmt(h.investedAmount)}</span>
                       <span className={positive ? 'text-green-600' : 'text-red-500'}>
                         {positive ? '+' : '-'}{fmt(h.absoluteReturn)}
                       </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/portfolio/redeem/${h.id}`); }}
+                        className="flex items-center gap-1 text-red-500 hover:text-red-600 font-medium border border-red-200 rounded-full px-2 py-0.5 hover:bg-red-50 transition-colors"
+                      >
+                        <ArrowDownCircle size={11} /> Redeem
+                      </button>
                     </div>
                   </div>
                 )

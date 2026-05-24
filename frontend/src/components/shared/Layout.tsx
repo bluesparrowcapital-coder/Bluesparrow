@@ -1,8 +1,11 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
+import { useEffect, useState } from 'react'
+import { Bell } from 'lucide-react'
 import type { RootState } from '../../store'
 import { logout } from '../../store/slices/authSlice'
 import { authService } from '../../services/authService'
+import { notificationService } from '../../services/phase3Service'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const dispatch    = useDispatch()
@@ -10,8 +13,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location    = useLocation()
   const user        = useSelector((s: RootState) => s.auth.user)
   const accessToken = useSelector((s: RootState) => s.auth.accessToken)
+  const [unread, setUnread] = useState(0)
 
   const onProfileRoute = location.pathname.startsWith('/onboarding')
+
+  useEffect(() => {
+    notificationService.list(1, 1)
+      .then(({ unread: u }) => setUnread(u))
+      .catch(() => {})
+  }, [location.pathname])
 
   async function handleLogout() {
     try {
@@ -97,6 +107,65 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           >
             <span className="text-base">👤</span>
             My Profile
+          </NavLink>
+
+          {/* My SIPs */}
+          <NavLink
+            to="/sip"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`
+            }
+          >
+            <span className="text-base">📅</span>
+            My SIPs
+          </NavLink>
+
+          {/* My Goals */}
+          <NavLink
+            to="/goals"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`
+            }
+          >
+            <span className="text-base">🎯</span>
+            My Goals
+          </NavLink>
+
+          {/* Analytics */}
+          <NavLink
+            to="/analytics"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`
+            }
+          >
+            <span className="text-base">📊</span>
+            Analytics
+          </NavLink>
+
+          {/* Notifications */}
+          <NavLink
+            to="/notifications"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`
+            }
+          >
+            <span className="text-base relative inline-block">
+              <Bell className="w-4 h-4 inline -mt-0.5" />
+              {unread > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </span>
+            Notifications
           </NavLink>
         </nav>
 
