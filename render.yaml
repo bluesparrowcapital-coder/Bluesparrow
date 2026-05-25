@@ -23,3 +23,18 @@ services:
         sync: false
       - key: CLIENT_ORIGIN
         sync: false
+      # ─── NSE MF NMF II ────────────────────────────────────
+      - key: NSE_SANDBOX
+        value: "false"
+      - key: NSE_MEMBER_ID
+        sync: false
+      - key: NSE_USER_ID
+        sync: false
+      - key: NSE_PASSWORD
+        sync: false
+      - key: NSE_LICENSE_KEY
+        sync: false
+      - key: NSE_AMC_CODE
+        sync: false
+      - key: NSE_API_URL
+        sync: false

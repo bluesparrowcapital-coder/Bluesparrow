@@ -225,10 +225,10 @@ export async function executeDueSips(): Promise<{ executed: number; failed: numb
             investedAmount: newInvested,
             avgNav:         newAvgNav,
             currentValue:   newUnits * nav,
-            portfolioId:    txn.id,
             lastUpdated:    new Date(),
           },
         });
+        await prisma.transaction.update({ where: { id: txn.id }, data: { portfolioId: existing.id } });
       } else {
         const portfolio = await prisma.portfolio.create({
           data: {

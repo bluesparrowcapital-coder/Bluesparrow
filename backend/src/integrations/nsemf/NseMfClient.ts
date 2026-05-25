@@ -13,6 +13,7 @@
  *   NSE_SANDBOX      — Set to "false" to use real API
  */
 
+import https from 'https';
 import axios, { AxiosInstance } from 'axios';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger';
@@ -155,14 +156,16 @@ class NseMfClient {
       && process.env.NSE_LICENSE_KEY,
     );
     const looksLikeSandboxCreds = (process.env.NSE_PASSWORD ?? '').startsWith('SANDBOX')
-      || process.env.NSE_LICENSE_KEY === 'SANDBOXKEY123456';
+      || (process.env.NSE_PASSWORD ?? '').startsWith('your_')
+      || process.env.NSE_LICENSE_KEY === 'SANDBOXKEY123456'
+      || process.env.NSE_LICENSE_KEY === 'your_16char_license_key';
 
     // In sandbox mode (default) these values are never sent to a real API,
     // so dummy fallbacks are fine. Replace with real credentials when NSE_SANDBOX=false.
     this.memberId   = process.env.NSE_MEMBER_ID   ?? 'SANDBOX_MEMBER';
     this.userId     = process.env.NSE_USER_ID     ?? process.env.NSE_MEMBER_ID ?? 'SANDBOX_USER';
     this.password   = process.env.NSE_PASSWORD    ?? 'SANDBOX_PASS';
-    this.licenseKey = process.env.NSE_LICENSE_KEY ?? 'SANDBOXKEY123456';  // 16-char placeholder
+    this.licenseKey = process.env.NSE_LICENSE_KEY ?? 'SANDBOXKEY123456';  // 32-char hex placeholder
     this.isSandbox  = requestedSandbox || !hasConfiguredProdCreds || looksLikeSandboxCreds;
 
     if (!requestedSandbox && this.isSandbox) {
@@ -173,12 +176,23 @@ class NseMfClient {
 
     const baseURL = this.isSandbox
       ? (process.env.NSE_SANDBOX_URL ?? 'https://nseinvestuat.nseindia.com')
-      : (process.env.NSE_API_URL     ?? 'https://www.nseinvest.com');
+      : (process.env.NSE_API_URL     ?? 'https://nseinvest.nseindia.com');
+
+    // NSE Akamai gateway requires TLS 1.3+ and specific headers on every request
+    const httpsAgent = new https.Agent({ minVersion: 'TLSv1.3' });
 
     this.http = axios.create({
       baseURL,
       timeout: 30_000,
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      httpsAgent,
+      headers: {
+        'Content-Type':   'application/json',
+        'Accept':         '',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'en-US',
+        'Connection':     'keep-alive',
+        'User-Agent':     'PostmanRuntime/7.43.0',
+      },
     });
   }
 
@@ -186,24 +200,29 @@ class NseMfClient {
 
   /**
    * Build BASIC Authorization header per NSE NMF II v1.9.6:
-   *   plain_text          = API Secret|<RANDOM Number>
-   *   aes_encrypted_val   = AES-128-CBC(key=licenseKey[0..15], iv=iv[0..15], plain_text)
-   *   Encrypted Password  = base64(iv :: salt :: aes_encrypted_val)
-   *   Authorization       = BASIC base64(userId : Encrypted Password)
+   *   plain_text         = API Secret|<RANDOM Number>
+   *   aes_encrypted_val  = AES-128-CBC(
+   *                          key = LICENSE_KEY decoded from 32-char hex → 16 bytes,
+   *                          iv  = 16 random bytes,
+   *                          plaintext
+   *                        )
+   *   Encrypted Password = base64(<iv-hex>::<salt-hex>::<aes_encrypted_val>)
+   *   Authorization      = BASIC base64(userId : Encrypted Password)
    */
   private buildAuthHeader(): string {
     if (this.isSandbox) return 'BASIC SANDBOX_AUTH';
 
-    const salt      = crypto.randomBytes(16).toString('hex');   // 32 hex chars
-    const iv        = crypto.randomBytes(16).toString('hex');   // 32 hex chars
-    const randomNum = Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000;
-    const plainText = `${this.password}|${randomNum}`;
+    const saltBytes  = crypto.randomBytes(16);
+    const ivBytes    = crypto.randomBytes(16);
+    const salt       = saltBytes.toString('hex');   // 32 hex chars for envelope
+    const iv         = ivBytes.toString('hex');     // 32 hex chars for envelope
+    const randomNum  = Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000;
+    const plainText  = `${this.password}|${randomNum}`;
 
-    // AES-128-CBC: key = first 16 bytes of licenseKey, IV = first 16 bytes of iv string
-    const keyBuf = Buffer.from(this.licenseKey.substring(0, 16), 'utf8');
-    const ivBuf  = Buffer.from(iv.substring(0, 16), 'utf8');
+    // LICENSE_KEY is a 32-char hex string representing 16 bytes (AES-128 key)
+    const keyBuf = Buffer.from(this.licenseKey, 'hex');  // 32 hex → 16 bytes
 
-    const cipher = crypto.createCipheriv('aes-128-cbc', keyBuf, ivBuf);
+    const cipher = crypto.createCipheriv('aes-128-cbc', keyBuf, ivBytes);
     let aesEncrypted  = cipher.update(plainText, 'utf8', 'base64');
     aesEncrypted     += cipher.final('base64');
 
