@@ -343,14 +343,51 @@ export async function registerDistributor(data: {
   firmName: string;
   euinNumber?: string;
 }) {
-  const exists = await prisma.user.findUnique({ where: { phone: data.phone } });
-  if (exists) throw new Error('Phone number already registered');
-
-  const emailExists = await prisma.user.findUnique({ where: { email: data.email } });
-  if (emailExists) throw new Error('Email already registered');
-
+  // Check if ARN is already taken by a different user
   const arnExists = await prisma.distributor.findUnique({ where: { arnNumber: data.arnNumber } });
   if (arnExists) throw new Error('ARN number already registered');
+
+  const existingUser = await prisma.user.findUnique({
+    where: { phone: data.phone },
+    include: { distributor: true },
+  });
+
+  if (existingUser) {
+    // Already a distributor — block
+    if (existingUser.distributor) {
+      throw new Error('Phone number already registered as a distributor');
+    }
+    // Existing investor account → upgrade to distributor
+    const arnConflict = await prisma.distributor.findUnique({ where: { arnNumber: data.arnNumber } });
+    if (arnConflict) throw new Error('ARN number already registered');
+
+    const pinHash = await bcrypt.hash(data.pin, 12);
+    const user = await prisma.user.update({
+      where: { id: existingUser.id },
+      data: {
+        role:     UserRole.DISTRIBUTOR,
+        pinHash,
+        pinSetAt: new Date(),
+        ...(data.email ? { email: data.email } : {}),
+        ...(data.fullName ? { fullName: data.fullName } : {}),
+        distributor: {
+          create: {
+            arnNumber:  data.arnNumber,
+            firmName:   data.firmName,
+            euinNumber: data.euinNumber,
+          },
+        },
+      },
+      include: { distributor: true },
+    });
+    return { id: user.id, fullName: user.fullName, email: user.email, phone: user.phone, role: user.role };
+  }
+
+  // New user — check email uniqueness
+  if (data.email) {
+    const emailExists = await prisma.user.findUnique({ where: { email: data.email } });
+    if (emailExists) throw new Error('Email already registered');
+  }
 
   const pinHash = await bcrypt.hash(data.pin, 12);
 
@@ -373,13 +410,7 @@ export async function registerDistributor(data: {
     include: { distributor: true },
   });
 
-  return {
-    id:       user.id,
-    fullName: user.fullName,
-    email:    user.email,
-    phone:    user.phone,
-    role:     user.role,
-  };
+  return { id: user.id, fullName: user.fullName, email: user.email, phone: user.phone, role: user.role };
 }
 
 // ─── Audit Log ────────────────────────────────────────────
