@@ -14,6 +14,7 @@ import sipRoutes from './routes/sipRoutes';
 import goalRoutes from './routes/goalRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import distributorRoutes from './routes/distributorRoutes';
 import { startNavCronJob } from './jobs/navUpdateJob';
 import { startSipProcessorJob } from './jobs/sipProcessorJob';
 
@@ -50,6 +51,7 @@ app.use('/api/sip',            sipRoutes);
 app.use('/api/goals',          goalRoutes);
 app.use('/api/analytics',      analyticsRoutes);
 app.use('/api/notifications',  notificationRoutes);
+app.use('/api/distributor',    distributorRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────
 app.use((_req, res) => {

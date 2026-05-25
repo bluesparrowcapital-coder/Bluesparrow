@@ -28,6 +28,14 @@ import AnalyticsPage      from './pages/portfolio/AnalyticsPage'
 import RedeemPage         from './pages/portfolio/RedeemPage'
 import NotificationsPage  from './pages/NotificationsPage'
 
+// Phase 4 — Distributor Panel
+import DistributorDashboard  from './pages/distributor/DistributorDashboard'
+import ClientListPage        from './pages/distributor/ClientListPage'
+import ClientDetailPage      from './pages/distributor/ClientDetailPage'
+import ModelPortfolioPage    from './pages/distributor/ModelPortfolioPage'
+import BusinessReportsPage   from './pages/distributor/BusinessReportsPage'
+import CompliancePage        from './pages/distributor/CompliancePage'
+
 // Dashboard
 function DashboardPage() {
   return (
@@ -132,6 +140,14 @@ export default function App() {
 
       {/* Phase 3 — Notifications */}
       <Route path="/notifications"        element={<ProtectedLayout><NotificationsPage /></ProtectedLayout>} />
+
+      {/* Phase 4 — Distributor Panel */}
+      <Route path="/distributor/dashboard"          element={<ProtectedLayout><DistributorDashboard /></ProtectedLayout>} />
+      <Route path="/distributor/clients"            element={<ProtectedLayout><ClientListPage /></ProtectedLayout>} />
+      <Route path="/distributor/clients/:clientId"  element={<ProtectedLayout><ClientDetailPage /></ProtectedLayout>} />
+      <Route path="/distributor/model-portfolios"   element={<ProtectedLayout><ModelPortfolioPage /></ProtectedLayout>} />
+      <Route path="/distributor/reports"            element={<ProtectedLayout><BusinessReportsPage /></ProtectedLayout>} />
+      <Route path="/distributor/compliance"         element={<ProtectedLayout><CompliancePage /></ProtectedLayout>} />
 
       {/* 404 */}
       <Route path="*" element={<Navigate to="/auth/login" replace />} />

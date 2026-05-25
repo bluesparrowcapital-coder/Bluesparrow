@@ -7,6 +7,7 @@ interface AuthState {
     email?: string
     fullName?: string
     onboardingStep?: string
+    role?: string
   } | null
   accessToken: string | null
   refreshToken: string | null

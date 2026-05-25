@@ -148,6 +148,7 @@ model User {
   addresses            Address[]
   nominees             Nominee[]
   kycStatusLogs        KycStatusLog[]
+  modelPortfolioAssignments ModelPortfolioAssign[]
 
   @@map("users")
 }
@@ -310,8 +311,11 @@ model Distributor {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  user     User       @relation(fields: [userId], references: [id])
-  clients  Portfolio[]
+  user            User                   @relation(fields: [userId], references: [id])
+  clients         Portfolio[]
+  modelPortfolios ModelPortfolio[]
+  assignments     ModelPortfolioAssign[]
+  auditLogs       AuditLog[]
 
   @@map("distributors")
 }
@@ -339,10 +343,11 @@ model Fund {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  navHistory      NavHistory[]
-  portfolios      Portfolio[]
-  transactions    Transaction[]
-  sipMandates     SipMandate[]
+  navHistory          NavHistory[]
+  portfolios          Portfolio[]
+  transactions        Transaction[]
+  sipMandates         SipMandate[]
+  modelPortfolioFunds ModelPortfolioFund[]
 
   @@map("funds")
 }
@@ -505,4 +510,65 @@ model OtpVerification {
   createdAt DateTime @default(now())
 
   @@map("otp_verifications")
+}
+
+// ─── PHASE 4 — DISTRIBUTOR PANEL ──────────────────────────
+
+model ModelPortfolio {
+  id            String   @id @default(uuid())
+  distributorId String
+  name          String
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  distributor Distributor            @relation(fields: [distributorId], references: [id])
+  funds       ModelPortfolioFund[]
+  assignments ModelPortfolioAssign[]
+
+  @@map("model_portfolios")
+}
+
+model ModelPortfolioFund {
+  id               String  @id @default(uuid())
+  modelPortfolioId String
+  fundId           String
+  allocationPct    Float   // Percentage (0–100), all funds must sum to 100
+
+  modelPortfolio ModelPortfolio @relation(fields: [modelPortfolioId], references: [id], onDelete: Cascade)
+  fund           Fund           @relation(fields: [fundId], references: [id])
+
+  @@unique([modelPortfolioId, fundId])
+  @@map("model_portfolio_funds")
+}
+
+model ModelPortfolioAssign {
+  id               String   @id @default(uuid())
+  modelPortfolioId String
+  userId           String
+  distributorId    String
+  assignedAt       DateTime @default(now())
+
+  modelPortfolio ModelPortfolio @relation(fields: [modelPortfolioId], references: [id])
+  user           User           @relation(fields: [userId], references: [id])
+  distributor    Distributor    @relation(fields: [distributorId], references: [id])
+
+  @@unique([modelPortfolioId, userId])
+  @@map("model_portfolio_assignments")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  distributorId String
+  action        String   // e.g. 'CLIENT_VIEW', 'MODEL_PORTFOLIO_CREATE', 'CLIENT_ASSIGN'
+  entityType    String   // 'client', 'transaction', 'model_portfolio'
+  entityId      String?
+  details       Json?
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  distributor Distributor @relation(fields: [distributorId], references: [id])
+
+  @@map("audit_logs")
 }

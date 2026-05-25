@@ -167,6 +167,35 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </span>
             Notifications
           </NavLink>
+
+          {/* ── Distributor Panel ── */}
+          {user?.role === 'DISTRIBUTOR' && (
+            <>
+              <div className="pt-3 pb-1">
+                <p className="text-[10px] uppercase tracking-wider text-gray-400 px-3 font-semibold">Distributor Panel</p>
+              </div>
+              {[
+                { to: '/distributor/dashboard',         icon: '🏦', label: 'D-Dashboard' },
+                { to: '/distributor/clients',           icon: '👥', label: 'My Clients' },
+                { to: '/distributor/model-portfolios',  icon: '💼', label: 'Model Portfolios' },
+                { to: '/distributor/reports',           icon: '📊', label: 'Business Reports' },
+                { to: '/distributor/compliance',        icon: '🛡️', label: 'Compliance' },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  <span className="text-base">{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         {/* Logout */}
