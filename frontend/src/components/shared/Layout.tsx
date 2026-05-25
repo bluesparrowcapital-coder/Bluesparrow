@@ -60,131 +60,126 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {/* Dashboard */}
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
-          >
-            <span className="text-base">🏠</span>
-            Dashboard
-          </NavLink>
 
-          {/* Explore Funds */}
-          <NavLink
-            to="/explore"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
-          >
-            <span className="text-base">🔍</span>
-            Explore Funds
-          </NavLink>
+          {/* ── Investor-only nav ── */}
+          {user?.role !== 'DISTRIBUTOR' && (
+            <>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <span className="text-base">🏠</span>
+                Dashboard
+              </NavLink>
 
-          {/* Portfolio */}
-          <NavLink
-            to="/portfolio"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
-          >
-            <span className="text-base">📈</span>
-            My Portfolio
-          </NavLink>
+              <NavLink
+                to="/explore"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <span className="text-base">🔍</span>
+                Explore Funds
+              </NavLink>
 
-          {/* My Profile */}
-          <NavLink
-            to="/onboarding/profile"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive || onProfileRoute
-                  ? 'bg-blue-50 text-sparrow-blue'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
-          >
-            <span className="text-base">👤</span>
-            My Profile
-          </NavLink>
+              <NavLink
+                to="/portfolio"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <span className="text-base">📈</span>
+                My Portfolio
+              </NavLink>
 
-          {/* My SIPs */}
-          <NavLink
-            to="/sip"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
-          >
-            <span className="text-base">📅</span>
-            My SIPs
-          </NavLink>
+              <NavLink
+                to="/onboarding/profile"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive || onProfileRoute
+                      ? 'bg-blue-50 text-sparrow-blue'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <span className="text-base">👤</span>
+                My Profile
+              </NavLink>
 
-          {/* My Goals */}
-          <NavLink
-            to="/goals"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
-          >
-            <span className="text-base">🎯</span>
-            My Goals
-          </NavLink>
+              <NavLink
+                to="/sip"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <span className="text-base">📅</span>
+                My SIPs
+              </NavLink>
 
-          {/* Analytics */}
-          <NavLink
-            to="/analytics"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
-          >
-            <span className="text-base">📊</span>
-            Analytics
-          </NavLink>
+              <NavLink
+                to="/goals"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <span className="text-base">🎯</span>
+                My Goals
+              </NavLink>
 
-          {/* Notifications */}
-          <NavLink
-            to="/notifications"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`
-            }
-          >
-            <span className="text-base relative inline-block">
-              <Bell className="w-4 h-4 inline -mt-0.5" />
-              {unread > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
-                  {unread > 9 ? '9+' : unread}
+              <NavLink
+                to="/analytics"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <span className="text-base">📊</span>
+                Analytics
+              </NavLink>
+
+              <NavLink
+                to="/notifications"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <span className="text-base relative inline-block">
+                  <Bell className="w-4 h-4 inline -mt-0.5" />
+                  {unread > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                      {unread > 9 ? '9+' : unread}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            Notifications
-          </NavLink>
+                Notifications
+              </NavLink>
+            </>
+          )}
 
-          {/* ── Distributor Panel ── */}
+          {/* ── Distributor-only nav ── */}
           {user?.role === 'DISTRIBUTOR' && (
             <>
-              <div className="pt-3 pb-1">
-                <p className="text-[10px] uppercase tracking-wider text-gray-400 px-3 font-semibold">Distributor Panel</p>
-              </div>
               {[
-                { to: '/distributor/dashboard',         icon: '🏦', label: 'D-Dashboard' },
-                { to: '/distributor/clients',           icon: '👥', label: 'My Clients' },
-                { to: '/distributor/model-portfolios',  icon: '💼', label: 'Model Portfolios' },
-                { to: '/distributor/reports',           icon: '📊', label: 'Business Reports' },
-                { to: '/distributor/compliance',        icon: '🛡️', label: 'Compliance' },
+                { to: '/distributor/dashboard',        icon: '🏦', label: 'Dashboard' },
+                { to: '/distributor/clients',          icon: '👥', label: 'My Clients' },
+                { to: '/distributor/model-portfolios', icon: '💼', label: 'Model Portfolios' },
+                { to: '/distributor/reports',          icon: '📊', label: 'Business Reports' },
+                { to: '/distributor/compliance',       icon: '🛡️', label: 'Compliance' },
               ].map((item) => (
                 <NavLink
                   key={item.to}
