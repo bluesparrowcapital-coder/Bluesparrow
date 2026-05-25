@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, TransactionStatus, TransactionType } from '@prisma/client';
 import crypto from 'crypto';
 
 const prisma = new PrismaClient();
@@ -95,8 +95,8 @@ export async function placeLumpsumOrder(input: LumpsumOrderInput) {
       id:       crypto.randomUUID(),
       userId,
       fundId,
-      type:     'BUY',
-      status:   'PROCESSING',
+      type:     TransactionType.BUY,
+      status:   TransactionStatus.PROCESSING,
       amount,
       units,
       navAtTxn: fund.nav,
@@ -130,7 +130,7 @@ export async function placeLumpsumOrder(input: LumpsumOrderInput) {
 
     await prisma.transaction.update({
       where: { id: txn.id },
-      data:  { portfolioId: existingPortfolio.id, status: 'COMPLETED', settlementDate: new Date(), updatedAt: new Date() },
+      data:  { portfolioId: existingPortfolio.id, status: TransactionStatus.COMPLETED, settlementDate: new Date(), updatedAt: new Date() },
     });
   } else {
     const currentValue = units * fund.nav;
@@ -150,7 +150,7 @@ export async function placeLumpsumOrder(input: LumpsumOrderInput) {
 
     await prisma.transaction.update({
       where: { id: txn.id },
-      data:  { portfolioId: portfolio.id, status: 'COMPLETED', settlementDate: new Date(), updatedAt: new Date() },
+      data:  { portfolioId: portfolio.id, status: TransactionStatus.COMPLETED, settlementDate: new Date(), updatedAt: new Date() },
     });
   }
 
@@ -195,8 +195,8 @@ export async function redeemUnits(input: RedeemInput) {
       userId:        input.userId,
       fundId:        portfolio.fundId,
       portfolioId:   portfolio.id,
-      type:          'SELL',
-      status:        'COMPLETED',
+      type:          TransactionType.SELL,
+      status:        TransactionStatus.COMPLETED,
       amount:        redeemAmount,
       units:         redeemUnitsCount,
       navAtTxn:      nav,
@@ -281,7 +281,7 @@ export async function switchFund(input: SwitchInput) {
   await prisma.transaction.create({
     data: {
       userId: input.userId, fundId: fromPortfolio.fundId, portfolioId: fromPortfolio.id,
-      type: 'SWITCH_OUT', status: 'COMPLETED',
+      type: TransactionType.SWITCH_OUT, status: TransactionStatus.COMPLETED,
       amount: switchAmount, units: switchUnits, navAtTxn: fromPortfolio.fund.nav,
       txnDate: new Date(), remarks: `Switch to ${toFund.schemeName}`,
     },
@@ -321,7 +321,7 @@ export async function switchFund(input: SwitchInput) {
   await prisma.transaction.create({
     data: {
       userId: input.userId, fundId: input.toFundId, portfolioId: toPortfolio.id,
-      type: 'SWITCH_IN', status: 'COMPLETED',
+      type: TransactionType.SWITCH_IN, status: TransactionStatus.COMPLETED,
       amount: switchAmount, units: toUnits, navAtTxn: toFund.nav,
       txnDate: new Date(), remarks: `Switch from ${fromPortfolio.fund.schemeName}`,
     },
