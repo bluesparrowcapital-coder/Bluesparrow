@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import * as svc from '../services/distributorService';
 
@@ -8,6 +8,25 @@ async function resolveDistributorId(userId: string): Promise<string> {
   const profile = await svc.getProfile(userId);
   if (!profile) throw new Error('Distributor profile not found. Please complete your profile first.');
   return profile.id;
+}
+
+// ─── Distributor Registration (public) ──────────────────
+
+export async function registerDistributor(req: Request, res: Response) {
+  try {
+    const { phone, pin, fullName, email, arnNumber, firmName, euinNumber } = req.body;
+    if (!phone || !pin || !fullName || !email || !arnNumber || !firmName) {
+      return res.status(400).json({ success: false, message: 'phone, pin, fullName, email, arnNumber, firmName are required' });
+    }
+    if (!/^\d{4,6}$/.test(pin)) {
+      return res.status(400).json({ success: false, message: 'PIN must be 4-6 digits' });
+    }
+    const user = await svc.registerDistributor({ phone, pin, fullName, email, arnNumber, firmName, euinNumber });
+    return res.status(201).json({ success: true, message: 'Distributor account created. Please login.', data: user });
+  } catch (err: any) {
+    const status = err.message.includes('already') ? 409 : 500;
+    return res.status(status).json({ success: false, message: err.message });
+  }
 }
 
 // ─── Profile ──────────────────────────────────────────────

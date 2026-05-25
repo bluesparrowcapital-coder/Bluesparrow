@@ -4,7 +4,10 @@ import * as ctrl from '../controllers/distributorController';
 
 const router = Router();
 
-// All distributor routes require authentication
+// ─── Public routes (no auth) ──────────────────────────────
+router.post('/register', ctrl.registerDistributor);
+
+// All other distributor routes require authentication
 router.use(authenticate);
 
 // ─── Profile ──────────────────────────────────────────────

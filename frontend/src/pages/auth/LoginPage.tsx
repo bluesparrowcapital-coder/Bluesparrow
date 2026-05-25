@@ -137,6 +137,10 @@ export default function LoginPage() {
           New user?{' '}
           <Link to="/auth/register" className="text-sparrow-blue font-medium">Create account</Link>
         </p>
+        <p className="text-center text-slate-400 text-xs mt-2">
+          ARN holder?{' '}
+          <Link to="/distributor/register" className="text-sparrow-teal font-medium">Register as Distributor</Link>
+        </p>
       </div>
     </div>
   )

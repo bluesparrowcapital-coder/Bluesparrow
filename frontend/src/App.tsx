@@ -29,12 +29,13 @@ import RedeemPage         from './pages/portfolio/RedeemPage'
 import NotificationsPage  from './pages/NotificationsPage'
 
 // Phase 4 — Distributor Panel
-import DistributorDashboard  from './pages/distributor/DistributorDashboard'
-import ClientListPage        from './pages/distributor/ClientListPage'
-import ClientDetailPage      from './pages/distributor/ClientDetailPage'
-import ModelPortfolioPage    from './pages/distributor/ModelPortfolioPage'
-import BusinessReportsPage   from './pages/distributor/BusinessReportsPage'
-import CompliancePage        from './pages/distributor/CompliancePage'
+import DistributorDashboard    from './pages/distributor/DistributorDashboard'
+import ClientListPage          from './pages/distributor/ClientListPage'
+import ClientDetailPage        from './pages/distributor/ClientDetailPage'
+import ModelPortfolioPage      from './pages/distributor/ModelPortfolioPage'
+import BusinessReportsPage     from './pages/distributor/BusinessReportsPage'
+import CompliancePage          from './pages/distributor/CompliancePage'
+import DistributorRegisterPage from './pages/distributor/DistributorRegisterPage'
 
 // Dashboard
 function DashboardPage() {
@@ -108,9 +109,10 @@ export default function App() {
       <Route path="/" element={<Navigate to="/auth/login" replace />} />
 
       {/* Auth (no layout) */}
-      <Route path="/auth/register" element={<RegisterPage />} />
-      <Route path="/auth/login"    element={<LoginPage />} />
-      <Route path="/auth/set-pin"  element={<SetPinPage />} />
+      <Route path="/auth/register"             element={<RegisterPage />} />
+      <Route path="/auth/login"                element={<LoginPage />} />
+      <Route path="/auth/set-pin"              element={<SetPinPage />} />
+      <Route path="/distributor/register"      element={<DistributorRegisterPage />} />
 
       {/* Protected routes with sidebar layout */}
       <Route path="/dashboard"            element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />

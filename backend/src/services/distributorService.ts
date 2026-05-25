@@ -1,4 +1,5 @@
-import { PrismaClient, SipStatus } from '@prisma/client';
+import { PrismaClient, SipStatus, UserRole } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -322,11 +323,63 @@ export async function createOrUpdateProfile(
   userId: string,
   data: { arnNumber: string; euinNumber?: string; firmName: string },
 ) {
+  // Also promote the user's role to DISTRIBUTOR
+  await prisma.user.update({ where: { id: userId }, data: { role: UserRole.DISTRIBUTOR } });
+
   return prisma.distributor.upsert({
     where:  { userId },
     update: data,
     create: { userId, ...data },
   });
+}
+
+// ─── Distributor self-registration ───────────────────────
+export async function registerDistributor(data: {
+  phone: string;
+  pin: string;
+  fullName: string;
+  email: string;
+  arnNumber: string;
+  firmName: string;
+  euinNumber?: string;
+}) {
+  const exists = await prisma.user.findUnique({ where: { phone: data.phone } });
+  if (exists) throw new Error('Phone number already registered');
+
+  const emailExists = await prisma.user.findUnique({ where: { email: data.email } });
+  if (emailExists) throw new Error('Email already registered');
+
+  const arnExists = await prisma.distributor.findUnique({ where: { arnNumber: data.arnNumber } });
+  if (arnExists) throw new Error('ARN number already registered');
+
+  const pinHash = await bcrypt.hash(data.pin, 12);
+
+  const user = await prisma.user.create({
+    data: {
+      phone:    data.phone,
+      email:    data.email,
+      fullName: data.fullName,
+      role:     UserRole.DISTRIBUTOR,
+      pinHash,
+      pinSetAt: new Date(),
+      distributor: {
+        create: {
+          arnNumber:  data.arnNumber,
+          firmName:   data.firmName,
+          euinNumber: data.euinNumber,
+        },
+      },
+    },
+    include: { distributor: true },
+  });
+
+  return {
+    id:       user.id,
+    fullName: user.fullName,
+    email:    user.email,
+    phone:    user.phone,
+    role:     user.role,
+  };
 }
 
 // ─── Audit Log ────────────────────────────────────────────
