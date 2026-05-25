@@ -49,8 +49,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* User info */}
         <div className="px-6 py-4 border-b border-gray-100">
-          <p className="text-sm font-medium text-gray-800 truncate">{user?.fullName ?? 'Investor'}</p>
+          <p className="text-sm font-medium text-gray-800 truncate">{user?.fullName ?? 'User'}</p>
           <p className="text-xs text-gray-500 truncate">{user?.phone}</p>
+          {user?.role === 'DISTRIBUTOR' && (
+            <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sparrow-blue/10 text-sparrow-blue">
+              Distributor
+            </span>
+          )}
         </div>
 
         {/* Nav */}

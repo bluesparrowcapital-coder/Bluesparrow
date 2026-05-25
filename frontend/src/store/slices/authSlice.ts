@@ -15,11 +15,25 @@ interface AuthState {
   loading: boolean
 }
 
+/** Decode a JWT payload without verification (client-side only for display). */
+function decodeJwtPayload(token: string): Record<string, string> | null {
+  try {
+    return JSON.parse(atob(token.split('.')[1]))
+  } catch {
+    return null
+  }
+}
+
+const storedToken = localStorage.getItem('accessToken')
+const decoded     = storedToken ? decodeJwtPayload(storedToken) : null
+
 const initialState: AuthState = {
-  user: null,
-  accessToken: localStorage.getItem('accessToken'),
-  refreshToken: localStorage.getItem('refreshToken'),
-  isAuthenticated: !!localStorage.getItem('accessToken'),
+  user: decoded
+    ? { userId: decoded.userId ?? '', phone: decoded.phone ?? '', role: decoded.role }
+    : null,
+  accessToken:     storedToken,
+  refreshToken:    localStorage.getItem('refreshToken'),
+  isAuthenticated: !!storedToken,
   loading: false,
 }
 

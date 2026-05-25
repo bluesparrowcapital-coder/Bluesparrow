@@ -29,10 +29,17 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const res = await authService.loginWithPin({ phone, pin })
-      dispatch(setTokens({ accessToken: res.data.accessToken, refreshToken: res.data.refreshToken }))
-      dispatch(setUser({ userId: res.data.userId, phone, onboardingStep: res.data.onboardingStep }))
+      const d = res.data // { user, accessToken, refreshToken }
+      dispatch(setTokens({ accessToken: d.accessToken, refreshToken: d.refreshToken }))
+      dispatch(setUser({
+        userId:   d.user.id,
+        phone:    d.user.phone,
+        email:    d.user.email,
+        fullName: d.user.fullName,
+        role:     d.user.role,
+      }))
       toast.success('Welcome back!')
-      navigate('/onboarding/status')
+      navigate(d.user.role === 'DISTRIBUTOR' ? '/distributor/dashboard' : '/onboarding/status')
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number; data?: { message?: string; lockedUntil?: string } } })?.response?.status
       const data   = (err as { response?: { data?: { message?: string; lockedUntil?: string } } })?.response?.data
@@ -54,9 +61,11 @@ export default function LoginPage() {
     }
     const tokens = await loginWithBiometric(phone)
     if (tokens) {
-      dispatch(setTokens(tokens))
+      const d = tokens as { user?: { id?: string; phone?: string; email?: string; fullName?: string; role?: string }; accessToken: string; refreshToken: string }
+      dispatch(setTokens({ accessToken: d.accessToken, refreshToken: d.refreshToken }))
+      if (d.user) dispatch(setUser({ userId: d.user.id ?? '', phone: d.user.phone ?? phone, email: d.user.email, fullName: d.user.fullName, role: d.user.role }))
       toast.success('Welcome back!')
-      navigate('/onboarding/status')
+      navigate(d.user?.role === 'DISTRIBUTOR' ? '/distributor/dashboard' : '/onboarding/status')
     }
   }
 
