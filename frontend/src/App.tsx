@@ -36,6 +36,7 @@ import ModelPortfolioPage      from './pages/distributor/ModelPortfolioPage'
 import BusinessReportsPage     from './pages/distributor/BusinessReportsPage'
 import CompliancePage          from './pages/distributor/CompliancePage'
 import DistributorRegisterPage from './pages/distributor/DistributorRegisterPage'
+import DistributorLoginPage    from './pages/distributor/DistributorLoginPage'
 
 // Dashboard
 function DashboardPage() {
@@ -113,6 +114,7 @@ export default function App() {
       <Route path="/auth/login"                element={<LoginPage />} />
       <Route path="/auth/set-pin"              element={<SetPinPage />} />
       <Route path="/distributor/register"      element={<DistributorRegisterPage />} />
+      <Route path="/distributor/login"         element={<DistributorLoginPage />} />
 
       {/* Protected routes with sidebar layout */}
       <Route path="/dashboard"            element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />

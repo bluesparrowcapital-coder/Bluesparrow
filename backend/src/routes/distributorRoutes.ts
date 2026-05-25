@@ -6,6 +6,7 @@ const router = Router();
 
 // ─── Public routes (no auth) ──────────────────────────────
 router.post('/register', ctrl.registerDistributor);
+router.post('/login',    ctrl.loginDistributor);
 
 // All other distributor routes require authentication
 router.use(authenticate);

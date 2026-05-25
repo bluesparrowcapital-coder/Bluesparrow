@@ -1,5 +1,11 @@
 import { PrismaClient, SipStatus, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import {
+  signAccessToken,
+  signRefreshToken,
+  hashToken,
+  refreshTokenExpiry,
+} from '../utils/jwt';
 
 const prisma = new PrismaClient();
 
@@ -411,6 +417,76 @@ export async function registerDistributor(data: {
   });
 
   return { id: user.id, fullName: user.fullName, email: user.email, phone: user.phone, role: user.role };
+}
+
+// ─── Distributor Login (ARN + PIN) ────────────────────────
+
+export async function loginDistributorByArn(arnNumber: string, pin: string, deviceInfo?: string) {
+  const distributor = await prisma.distributor.findUnique({
+    where: { arnNumber },
+    include: {
+      user: {
+        select: {
+          id: true, fullName: true, email: true, phone: true, role: true,
+          kycStatus: true, pinHash: true, pinAttempts: true, isActive: true,
+          pinLockedUntil: true,
+        },
+      },
+    },
+  });
+
+  if (!distributor || !distributor.user.isActive) {
+    throw new Error('ARN number not found');
+  }
+
+  const user = distributor.user;
+
+  if (!user.pinHash) {
+    throw new Error('PIN not set. Please contact support.');
+  }
+
+  // Lockout check
+  if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
+    const remaining = Math.ceil((user.pinLockedUntil.getTime() - Date.now()) / 60000);
+    throw new Error(`Account locked. Try again in ${remaining} minutes`);
+  }
+
+  const isValid = await bcrypt.compare(pin, user.pinHash);
+  const MAX_ATTEMPTS = 5;
+
+  if (!isValid) {
+    const attempts = user.pinAttempts + 1;
+    if (attempts >= MAX_ATTEMPTS) {
+      const lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+      await prisma.user.update({ where: { id: user.id }, data: { pinAttempts: attempts, pinLockedUntil: lockedUntil } });
+      throw new Error('Too many wrong PINs. Account locked for 30 minutes');
+    }
+    await prisma.user.update({ where: { id: user.id }, data: { pinAttempts: attempts } });
+    throw new Error(`Wrong PIN. ${MAX_ATTEMPTS - attempts} attempts remaining`);
+  }
+
+  // Reset attempts
+  await prisma.user.update({ where: { id: user.id }, data: { pinAttempts: 0, pinLockedUntil: null } });
+
+  // Generate tokens
+  const payload      = { userId: user.id, role: user.role, phone: user.phone };
+  const accessToken  = signAccessToken(payload);
+  const refreshToken = signRefreshToken(payload);
+
+  await prisma.refreshToken.create({
+    data: {
+      userId:     user.id,
+      token:      hashToken(refreshToken),
+      deviceInfo: deviceInfo || null,
+      expiresAt:  refreshTokenExpiry(),
+    },
+  });
+
+  return {
+    user: { id: user.id, fullName: user.fullName, email: user.email, phone: user.phone, role: user.role },
+    accessToken,
+    refreshToken,
+  };
 }
 
 // ─── Audit Log ────────────────────────────────────────────

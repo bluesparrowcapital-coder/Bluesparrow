@@ -148,7 +148,7 @@ export default function LoginPage() {
         </p>
         <p className="text-center text-slate-400 text-xs mt-2">
           ARN holder?{' '}
-          <Link to="/distributor/register" className="text-sparrow-teal font-medium">Register as Distributor</Link>
+          <Link to="/distributor/login" className="text-sparrow-teal font-medium">Login as Distributor</Link>
         </p>
       </div>
     </div>

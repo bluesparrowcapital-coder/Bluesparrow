@@ -29,6 +29,26 @@ export async function registerDistributor(req: Request, res: Response) {
   }
 }
 
+// ─── Distributor Login (public) ───────────────────────────
+
+export async function loginDistributor(req: Request, res: Response) {
+  try {
+    const { arnNumber, pin } = req.body;
+    if (!arnNumber || !pin) {
+      return res.status(400).json({ success: false, message: 'arnNumber and pin are required' });
+    }
+    if (!/^\d{4,6}$/.test(pin)) {
+      return res.status(400).json({ success: false, message: 'PIN must be 4-6 digits' });
+    }
+    const deviceInfo = req.headers['user-agent'];
+    const result = await svc.loginDistributorByArn(arnNumber.trim().toUpperCase(), pin, deviceInfo);
+    return res.json({ success: true, message: 'Login successful', data: result });
+  } catch (err: any) {
+    const status = err.message.includes('locked') ? 423 : err.message.includes('not found') ? 401 : 500;
+    return res.status(status).json({ success: false, message: err.message });
+  }
+}
+
 // ─── Profile ──────────────────────────────────────────────
 
 export async function getProfile(req: AuthRequest, res: Response) {

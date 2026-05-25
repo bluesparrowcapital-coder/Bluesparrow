@@ -167,7 +167,7 @@ export default function DistributorRegisterPage() {
 
         <p className="text-center text-sm text-gray-500 mt-5">
           Already have an account?{' '}
-          <Link to="/auth/login" className="text-sparrow-blue font-semibold hover:underline">Login</Link>
+          <Link to="/distributor/login" className="text-sparrow-blue font-semibold hover:underline">Login</Link>
         </p>
 
       </div>
