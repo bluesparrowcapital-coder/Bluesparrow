@@ -107,7 +107,7 @@ export async function getClientDetail(distributorId: string, clientUserId: strin
       select: {
         id: true, fullName: true, email: true, phone: true,
         panNumber: true, kycStatus: true, onboardingStep: true, createdAt: true,
-        clientProfile: { select: { mobileNumber: true, occupation: true } },
+        clientProfile: { select: { mobile: true, occupation: true } },
         bankAccounts:  { where: { isDefault: true }, select: { bankName: true, accountNumber: true, isVerified: true }, take: 1 },
       },
     }),
