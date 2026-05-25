@@ -174,11 +174,89 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {/* ── Distributor-only nav ── */}
           {user?.role === 'DISTRIBUTOR' && (
             <>
+              {/* Core */}
               {[
-                { to: '/distributor/dashboard',        icon: '🏦', label: 'Dashboard' },
-                { to: '/distributor/clients',          icon: '👥', label: 'My Clients' },
+                { to: '/distributor/dashboard', icon: '🏦', label: 'Dashboard' },
+                { to: '/distributor/clients',   icon: '👥', label: 'My Clients' },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  <span className="text-base">{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+
+              {/* Research */}
+              <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Research</p>
+              {[
+                { to: '/distributor/fund-research', icon: '🔍', label: 'Fund Research' },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  <span className="text-base">{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+
+              {/* Transactions */}
+              <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Transactions</p>
+              {[
+                { to: '/distributor/transactions',       icon: '💸', label: 'Transactions' },
+                { to: '/distributor/portfolio-tracking', icon: '📈', label: 'Portfolio Tracking' },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  <span className="text-base">{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+
+              {/* Financials */}
+              <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Financials</p>
+              {[
+                { to: '/distributor/commission',        icon: '💰', label: 'Commission' },
+                { to: '/distributor/reports-enhanced',  icon: '📊', label: 'Reports' },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive ? 'bg-blue-50 text-sparrow-blue' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  <span className="text-base">{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+
+              {/* Tools */}
+              <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Tools</p>
+              {[
                 { to: '/distributor/model-portfolios', icon: '💼', label: 'Model Portfolios' },
-                { to: '/distributor/reports',          icon: '📊', label: 'Business Reports' },
+                { to: '/distributor/notifications',    icon: '🔔', label: 'Notifications' },
                 { to: '/distributor/compliance',       icon: '🛡️', label: 'Compliance' },
               ].map((item) => (
                 <NavLink

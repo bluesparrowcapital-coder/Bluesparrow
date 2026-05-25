@@ -29,14 +29,20 @@ import RedeemPage         from './pages/portfolio/RedeemPage'
 import NotificationsPage  from './pages/NotificationsPage'
 
 // Phase 4 — Distributor Panel
-import DistributorDashboard    from './pages/distributor/DistributorDashboard'
-import ClientListPage          from './pages/distributor/ClientListPage'
-import ClientDetailPage        from './pages/distributor/ClientDetailPage'
-import ModelPortfolioPage      from './pages/distributor/ModelPortfolioPage'
-import BusinessReportsPage     from './pages/distributor/BusinessReportsPage'
-import CompliancePage          from './pages/distributor/CompliancePage'
-import DistributorRegisterPage from './pages/distributor/DistributorRegisterPage'
-import DistributorLoginPage    from './pages/distributor/DistributorLoginPage'
+import DistributorDashboard         from './pages/distributor/DistributorDashboard'
+import ClientListPage               from './pages/distributor/ClientListPage'
+import ClientDetailPage             from './pages/distributor/ClientDetailPage'
+import ModelPortfolioPage           from './pages/distributor/ModelPortfolioPage'
+import BusinessReportsPage          from './pages/distributor/BusinessReportsPage'
+import CompliancePage               from './pages/distributor/CompliancePage'
+import DistributorRegisterPage      from './pages/distributor/DistributorRegisterPage'
+import DistributorLoginPage         from './pages/distributor/DistributorLoginPage'
+import FundResearchPage             from './pages/distributor/FundResearchPage'
+import TransactionsPage             from './pages/distributor/TransactionsPage'
+import PortfolioTrackingPage        from './pages/distributor/PortfolioTrackingPage'
+import CommissionPage               from './pages/distributor/CommissionPage'
+import ReportsPage                  from './pages/distributor/ReportsPage'
+import DistributorNotificationsPage from './pages/distributor/DistributorNotificationsPage'
 
 // Dashboard
 function DashboardPage() {
@@ -152,6 +158,12 @@ export default function App() {
       <Route path="/distributor/model-portfolios"   element={<ProtectedLayout><ModelPortfolioPage /></ProtectedLayout>} />
       <Route path="/distributor/reports"            element={<ProtectedLayout><BusinessReportsPage /></ProtectedLayout>} />
       <Route path="/distributor/compliance"         element={<ProtectedLayout><CompliancePage /></ProtectedLayout>} />
+      <Route path="/distributor/fund-research"      element={<ProtectedLayout><FundResearchPage /></ProtectedLayout>} />
+      <Route path="/distributor/transactions"       element={<ProtectedLayout><TransactionsPage /></ProtectedLayout>} />
+      <Route path="/distributor/portfolio-tracking" element={<ProtectedLayout><PortfolioTrackingPage /></ProtectedLayout>} />
+      <Route path="/distributor/commission"         element={<ProtectedLayout><CommissionPage /></ProtectedLayout>} />
+      <Route path="/distributor/reports-enhanced"   element={<ProtectedLayout><ReportsPage /></ProtectedLayout>} />
+      <Route path="/distributor/notifications"      element={<ProtectedLayout><DistributorNotificationsPage /></ProtectedLayout>} />
 
       {/* 404 */}
       <Route path="*" element={<Navigate to="/auth/login" replace />} />
