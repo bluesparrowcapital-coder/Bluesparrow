@@ -149,9 +149,15 @@ export async function fetchAndSeedAmfiNav(): Promise<{ updated: number; skipped:
   return { updated, skipped };
 }
 
-async function processBatch(items: typeof [] extends never ? never : Array<{
-  schemeCode: string; isinGrowth: string | null; isinDividend: string | null;
-  schemeName: string; fundHouse: string; nav: number; navDate: Date; category: string;
+async function processBatch(items: Array<{
+  schemeCode: string;
+  isinGrowth: string | null;
+  isinDividend: string | null;
+  schemeName: string;
+  fundHouse: string;
+  nav: number;
+  navDate: Date;
+  category: string;
 }>) {
   for (const item of items) {
     try {
