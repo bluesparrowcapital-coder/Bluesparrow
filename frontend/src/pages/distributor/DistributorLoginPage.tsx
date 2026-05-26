@@ -6,6 +6,12 @@ import toast from 'react-hot-toast';
 import { setTokens, setUser } from '../../store/slices/authSlice';
 import api from '../../services/api';
 
+const ARN_PREFIX = 'ARN-';
+
+function normalizeArnInput(value: string) {
+  return value.toUpperCase().replace(/^ARN-/i, '').replace(/[^A-Z0-9]/g, '');
+}
+
 export default function DistributorLoginPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -23,7 +29,7 @@ export default function DistributorLoginPage() {
     setLoading(true);
     try {
       const res = await api.post('/distributor/login', {
-        arnNumber: arnNumber.trim().toUpperCase(),
+        arnNumber: `${ARN_PREFIX}${normalizeArnInput(arnNumber.trim())}`,
         pin,
       });
       const d = res.data.data; // { user, accessToken, refreshToken }
@@ -78,11 +84,14 @@ export default function DistributorLoginPage() {
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                 <BadgeCheck className="w-4 h-4" />
               </span>
+              <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500 pointer-events-none">
+                {ARN_PREFIX}
+              </span>
               <input
-                className={inputCls}
-                placeholder="ARN-XXXXXX"
+                className="w-full pl-20 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sparrow-blue/30 focus:border-sparrow-blue transition"
+                placeholder="252837"
                 value={arnNumber}
-                onChange={(e) => setArnNumber(e.target.value)}
+                onChange={(e) => setArnNumber(normalizeArnInput(e.target.value))}
                 autoComplete="username"
                 required
               />

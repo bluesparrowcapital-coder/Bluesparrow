@@ -4,6 +4,12 @@ import { Building2, User, Phone, Lock, Mail, BadgeCheck, Briefcase, CreditCard }
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
+const ARN_PREFIX = 'ARN-';
+
+function normalizeArnInput(value: string) {
+  return value.toUpperCase().replace(/^ARN-/i, '').replace(/[^A-Z0-9]/g, '');
+}
+
 interface FormState {
   fullName: string;
   email: string;
@@ -59,7 +65,7 @@ export default function DistributorRegisterPage() {
         email:      form.email.trim().toLowerCase(),
         phone:      form.phone.trim(),
         pin:        form.pin,
-        arnNumber:  form.arnNumber.trim().toUpperCase(),
+        arnNumber:  `${ARN_PREFIX}${normalizeArnInput(form.arnNumber.trim())}`,
         firmName:   form.firmName.trim(),
         euinNumber: form.euinNumber.trim(),
       });
@@ -132,8 +138,13 @@ export default function DistributorRegisterPage() {
             <div className="space-y-4">
 
               <Field icon={BadgeCheck} label="ARN Number">
-                <input className={inputCls} placeholder="ARN-XXXXXX"
-                  value={form.arnNumber} onChange={(e) => update('arnNumber', e.target.value)} required />
+                <div className="relative">
+                  <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500 pointer-events-none">
+                    {ARN_PREFIX}
+                  </span>
+                  <input className="w-full pl-20 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sparrow-blue/30 focus:border-sparrow-blue transition" placeholder="252837"
+                    value={form.arnNumber} onChange={(e) => update('arnNumber', normalizeArnInput(e.target.value))} required />
+                </div>
               </Field>
 
               <Field icon={Briefcase} label="Firm / Business Name">
