@@ -8,6 +8,22 @@ import {
 } from '../utils/jwt';
 
 const prisma = new PrismaClient();
+const ARN_PREFIX = 'ARN-';
+
+function arnSuffix(value: string) {
+  return value.trim().toUpperCase().replace(/^ARN-/i, '').replace(/[^A-Z0-9]/g, '');
+}
+
+function normalizeArnNumber(value: string) {
+  const suffix = arnSuffix(value);
+  return suffix ? `${ARN_PREFIX}${suffix}` : '';
+}
+
+function arnVariants(value: string) {
+  const suffix = arnSuffix(value);
+  if (!suffix) return [] as string[];
+  return Array.from(new Set([suffix, `${ARN_PREFIX}${suffix}`]));
+}
 
 // ─── Dashboard Stats ──────────────────────────────────────
 
@@ -332,10 +348,20 @@ export async function createOrUpdateProfile(
   // Also promote the user's role to DISTRIBUTOR
   await prisma.user.update({ where: { id: userId }, data: { role: UserRole.DISTRIBUTOR } });
 
+  const normalizedArnNumber = normalizeArnNumber(data.arnNumber);
+  const arnConflict = await prisma.distributor.findFirst({
+    where: {
+      arnNumber: { in: arnVariants(data.arnNumber) },
+      NOT: { userId },
+    },
+    select: { id: true },
+  });
+  if (arnConflict) throw new Error('ARN number already registered');
+
   return prisma.distributor.upsert({
     where:  { userId },
-    update: data,
-    create: { userId, ...data },
+    update: { ...data, arnNumber: normalizedArnNumber },
+    create: { userId, ...data, arnNumber: normalizedArnNumber },
   });
 }
 
@@ -349,8 +375,13 @@ export async function registerDistributor(data: {
   firmName: string;
   euinNumber?: string;
 }) {
+  const normalizedArnNumber = normalizeArnNumber(data.arnNumber);
+
   // Check if ARN is already taken by a different user
-  const arnExists = await prisma.distributor.findUnique({ where: { arnNumber: data.arnNumber } });
+  const arnExists = await prisma.distributor.findFirst({
+    where: { arnNumber: { in: arnVariants(data.arnNumber) } },
+    select: { id: true },
+  });
   if (arnExists) throw new Error('ARN number already registered');
 
   const existingUser = await prisma.user.findUnique({
@@ -364,7 +395,10 @@ export async function registerDistributor(data: {
       throw new Error('Phone number already registered as a distributor');
     }
     // Existing investor account → upgrade to distributor
-    const arnConflict = await prisma.distributor.findUnique({ where: { arnNumber: data.arnNumber } });
+    const arnConflict = await prisma.distributor.findFirst({
+      where: { arnNumber: { in: arnVariants(data.arnNumber) } },
+      select: { id: true },
+    });
     if (arnConflict) throw new Error('ARN number already registered');
 
     const pinHash = await bcrypt.hash(data.pin, 12);
@@ -378,7 +412,7 @@ export async function registerDistributor(data: {
         ...(data.fullName ? { fullName: data.fullName } : {}),
         distributor: {
           create: {
-            arnNumber:  data.arnNumber,
+            arnNumber:  normalizedArnNumber,
             firmName:   data.firmName,
             euinNumber: data.euinNumber,
           },
@@ -407,7 +441,7 @@ export async function registerDistributor(data: {
       pinSetAt: new Date(),
       distributor: {
         create: {
-          arnNumber:  data.arnNumber,
+          arnNumber:  normalizedArnNumber,
           firmName:   data.firmName,
           euinNumber: data.euinNumber,
         },
@@ -422,8 +456,8 @@ export async function registerDistributor(data: {
 // ─── Distributor Login (ARN + PIN) ────────────────────────
 
 export async function loginDistributorByArn(arnNumber: string, pin: string, deviceInfo?: string) {
-  const distributor = await prisma.distributor.findUnique({
-    where: { arnNumber },
+  const distributor = await prisma.distributor.findFirst({
+    where: { arnNumber: { in: arnVariants(arnNumber) } },
     include: {
       user: {
         select: {
