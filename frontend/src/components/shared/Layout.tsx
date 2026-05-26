@@ -16,6 +16,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [unread, setUnread] = useState(0)
 
   const onProfileRoute = location.pathname.startsWith('/onboarding')
+  const isDistributorRoute = location.pathname.startsWith('/distributor')
 
   useEffect(() => {
     notificationService.list(1, 1)
@@ -289,7 +290,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-8">
+        <div className={isDistributorRoute ? 'max-w-[1520px] mx-auto px-6 py-8' : 'max-w-3xl mx-auto px-6 py-8'}>
           {children}
         </div>
       </main>
