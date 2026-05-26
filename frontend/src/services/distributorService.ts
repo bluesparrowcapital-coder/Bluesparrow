@@ -53,10 +53,15 @@ export interface DistributorUccPayload {
   email: string;
   phone: string;
   panNumber: string;
+  mobileDeclaration?: 'SELF' | 'FAMILY' | 'OTHER';
+  mailDeclaration?: 'SELF' | 'FAMILY' | 'OTHER';
   profile: {
     fullNameAsPan: string;
     dob: string;
     gender: 'M' | 'F' | 'T';
+    pepCategory?: 'NOT_EXPOSED' | 'PEP' | 'RELATED_PEP';
+    countryOfBirth?: string;
+    cityOfBirth?: string;
     fatherOrSpouseName: string;
     motherName?: string;
     placeOfBirth?: string;
@@ -71,19 +76,22 @@ export interface DistributorUccPayload {
   address: {
     addressLine1: string;
     addressLine2?: string;
+    addressLine3?: string;
     city: string;
     district?: string;
     state: string;
     pincode: string;
     country?: string;
+    sourceOfWealth?: string;
   };
-  bank: {
+  banks: Array<{
     accountNumber: string;
     ifscCode: string;
     bankName: string;
     accountHolder: string;
     accountType?: 'SB' | 'CA' | 'NRE' | 'NRO';
-  };
+    isDefault?: boolean;
+  }>;
   nominees: Array<{
     fullName: string;
     relationship: string;
@@ -96,6 +104,11 @@ export interface DistributorUccPayload {
     email?: string;
     phone?: string;
   }>;
+  verification?: {
+    source?: string;
+    sourceDetails?: string;
+    termsAccepted?: boolean;
+  };
 }
 
 export interface ClientDetail {

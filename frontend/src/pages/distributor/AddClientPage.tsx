@@ -13,16 +13,25 @@ const RELATIONSHIPS = ['SPOUSE', 'SON', 'DAUGHTER', 'FATHER', 'MOTHER', 'BROTHER
 const OCCUPATIONS = ['BUSINESS', 'SERVICE', 'PROFESSIONAL', 'AGRICULTURIST', 'RETIRED', 'HOUSEWIFE', 'STUDENT', 'OTHER'] as const;
 const TAX_STATUS = ['INDIVIDUAL', 'NRI', 'PIO', 'HUF', 'COMPANY', 'PARTNERSHIP'] as const;
 const INCOMES = ['BELOW_1L', '1L_TO_5L', '5L_TO_10L', '10L_TO_25L', '25L_TO_50L', '50L_TO_1CR', 'ABOVE_1CR'] as const;
+const DECLARATIONS = ['SELF', 'FAMILY', 'OTHER'] as const;
+const SOURCES_OF_WEALTH = ['SALARY', 'BUSINESS_INCOME', 'PROFESSIONAL_INCOME', 'AGRICULTURE', 'INHERITANCE', 'SAVINGS', 'OTHER'] as const;
+const VERIFICATION_SOURCES = ['MANUAL', 'CALL', 'BRANCH_VISIT', 'DIGILOCKER', 'NSEMF'] as const;
+const ACCOUNT_TYPES = ['SB', 'CA', 'NRE', 'NRO'] as const;
 
 const INIT: DistributorUccPayload = {
   fullName: '',
   email: '',
   phone: '',
   panNumber: '',
+  mobileDeclaration: 'SELF',
+  mailDeclaration: 'SELF',
   profile: {
     fullNameAsPan: '',
     dob: '',
     gender: 'M',
+    pepCategory: 'NOT_EXPOSED',
+    countryOfBirth: 'India',
+    cityOfBirth: '',
     fatherOrSpouseName: '',
     motherName: '',
     placeOfBirth: '',
@@ -37,19 +46,24 @@ const INIT: DistributorUccPayload = {
   address: {
     addressLine1: '',
     addressLine2: '',
+    addressLine3: '',
     city: '',
     district: '',
     state: 'Maharashtra',
     pincode: '',
     country: 'India',
+    sourceOfWealth: 'SALARY',
   },
-  bank: {
-    accountNumber: '',
-    ifscCode: '',
-    bankName: '',
-    accountHolder: '',
-    accountType: 'SB',
-  },
+  banks: [
+    {
+      accountNumber: '',
+      ifscCode: '',
+      bankName: '',
+      accountHolder: '',
+      accountType: 'SB',
+      isDefault: true,
+    },
+  ],
   nominees: [
     {
       fullName: '',
@@ -64,7 +78,23 @@ const INIT: DistributorUccPayload = {
       phone: '',
     },
   ],
+  verification: {
+    source: 'MANUAL',
+    sourceDetails: '',
+    termsAccepted: false,
+  },
 };
+
+function emptyBank() {
+  return {
+    accountNumber: '',
+    ifscCode: '',
+    bankName: '',
+    accountHolder: '',
+    accountType: 'SB' as const,
+    isDefault: false,
+  };
+}
 
 export default function AddClientPage() {
   const navigate = useNavigate();
@@ -84,8 +114,36 @@ export default function AddClientPage() {
     setForm((current) => ({ ...current, address: { ...current.address, [key]: value } }));
   }
 
-  function setBank<K extends keyof DistributorUccPayload['bank']>(key: K, value: DistributorUccPayload['bank'][K]) {
-    setForm((current) => ({ ...current, bank: { ...current.bank, [key]: value } }));
+  function setVerification<K extends keyof NonNullable<DistributorUccPayload['verification']>>(key: K, value: NonNullable<DistributorUccPayload['verification']>[K]) {
+    setForm((current) => ({
+      ...current,
+      verification: { ...(current.verification ?? {}), [key]: value },
+    }));
+  }
+
+  function setBank(index: number, key: keyof DistributorUccPayload['banks'][number], value: string | boolean) {
+    setForm((current) => ({
+      ...current,
+      banks: current.banks.map((bank, bankIndex) => {
+        if (bankIndex !== index) {
+          if (key === 'isDefault' && value === true) return { ...bank, isDefault: false };
+          return bank;
+        }
+        return { ...bank, [key]: value };
+      }),
+    }));
+  }
+
+  function addBank() {
+    setForm((current) => ({ ...current, banks: [...current.banks, emptyBank()] }));
+  }
+
+  function removeBank(index: number) {
+    setForm((current) => {
+      const next = current.banks.filter((_, bankIndex) => bankIndex !== index);
+      if (next.length && !next.some((bank) => bank.isDefault)) next[0].isDefault = true;
+      return { ...current, banks: next.length ? next : [emptyBank()] };
+    });
   }
 
   function setNomineeField(field: keyof DistributorUccPayload['nominees'][number], value: string | number) {
@@ -102,11 +160,15 @@ export default function AddClientPage() {
         profile: {
           ...form.profile,
           fullNameAsPan: form.profile.fullNameAsPan.toUpperCase(),
+          placeOfBirth: form.profile.cityOfBirth,
+          isPep: form.profile.pepCategory === 'PEP',
+          isRelatedToPep: form.profile.pepCategory === 'RELATED_PEP',
         },
-        bank: {
-          ...form.bank,
-          ifscCode: form.bank.ifscCode.toUpperCase(),
-        },
+        banks: form.banks.map((bank, index) => ({
+          ...bank,
+          ifscCode: bank.ifscCode.toUpperCase(),
+          isDefault: bank.isDefault ?? index === 0,
+        })),
       };
       const result = await distributorService.createClient(payload);
       setCreated(result);
@@ -199,70 +261,108 @@ export default function AddClientPage() {
 
       <div>
         <h1 className="text-xl font-bold text-gray-900">Create NSE UCC Account</h1>
-        <p className="text-sm text-gray-500 mt-1">Fill the full client profile, address, bank and nominee details required for NSE MF onboarding.</p>
+        <p className="text-sm text-gray-500 mt-1">Structured distributor-side client creation with KYC, address, bank, holding and verification fields.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <section className="card space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-sparrow-blue">Basic Details</p>
-          <div className="grid gap-4 md:grid-cols-2">
+          <SectionTitle title="KYC Information" />
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Tax Status"><select className="input w-full" value={form.profile.taxStatus} onChange={(e) => setProfile('taxStatus', e.target.value as DistributorUccPayload['profile']['taxStatus'])}>{TAX_STATUS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
+            <Field label="PAN"><input className="input w-full uppercase" value={form.panNumber} onChange={(e) => setRoot('panNumber', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} maxLength={10} required /></Field>
             <Field label="Full Name"><input className="input w-full" value={form.fullName} onChange={(e) => setRoot('fullName', e.target.value)} required /></Field>
-            <Field label="Email"><input className="input w-full" type="email" value={form.email} onChange={(e) => setRoot('email', e.target.value)} required /></Field>
+            <Field label="Date Of Birth"><input className="input w-full" type="date" value={form.profile.dob} onChange={(e) => setProfile('dob', e.target.value)} required /></Field>
             <Field label="Mobile Number"><input className="input w-full" value={form.phone} onChange={(e) => setRoot('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} maxLength={10} required /></Field>
-            <Field label="PAN Number"><input className="input w-full uppercase" value={form.panNumber} onChange={(e) => setRoot('panNumber', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} maxLength={10} required /></Field>
+            <Field label="Email"><input className="input w-full" type="email" value={form.email} onChange={(e) => setRoot('email', e.target.value)} required /></Field>
+            <Field label="Mobile Declaration"><select className="input w-full" value={form.mobileDeclaration} onChange={(e) => setRoot('mobileDeclaration', e.target.value as DistributorUccPayload['mobileDeclaration'])}>{DECLARATIONS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
+            <Field label="Mail Declaration"><select className="input w-full" value={form.mailDeclaration} onChange={(e) => setRoot('mailDeclaration', e.target.value as DistributorUccPayload['mailDeclaration'])}>{DECLARATIONS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
           </div>
         </section>
 
         <section className="card space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-sparrow-blue">Profile</p>
-          <div className="grid gap-4 md:grid-cols-2">
+          <SectionTitle title="Personal Details" />
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Gender"><div className="flex gap-5 pt-2 text-sm text-gray-700"><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'M'} onChange={() => setProfile('gender', 'M')} /> Male</label><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'F'} onChange={() => setProfile('gender', 'F')} /> Female</label><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'T'} onChange={() => setProfile('gender', 'T')} /> Other</label></div></Field>
+            <Field label="I Am"><select className="input w-full" value={form.profile.pepCategory} onChange={(e) => setProfile('pepCategory', e.target.value as DistributorUccPayload['profile']['pepCategory'])}><option value="NOT_EXPOSED">Politically not exposed person</option><option value="PEP">Politically exposed person</option><option value="RELATED_PEP">Related to politically exposed person</option></select></Field>
+            <Field label="Country Of Birth"><input className="input w-full" value={form.profile.countryOfBirth || ''} onChange={(e) => setProfile('countryOfBirth', e.target.value)} /></Field>
+            <Field label="City Of Birth"><input className="input w-full" value={form.profile.cityOfBirth || ''} onChange={(e) => setProfile('cityOfBirth', e.target.value)} /></Field>
             <Field label="Full Name As PAN"><input className="input w-full uppercase" value={form.profile.fullNameAsPan} onChange={(e) => setProfile('fullNameAsPan', e.target.value.toUpperCase())} required /></Field>
-            <Field label="Date Of Birth"><input className="input w-full" type="date" value={form.profile.dob} onChange={(e) => setProfile('dob', e.target.value)} required /></Field>
-            <Field label="Gender"><select className="input w-full" value={form.profile.gender} onChange={(e) => setProfile('gender', e.target.value as 'M' | 'F' | 'T')}><option value="M">Male</option><option value="F">Female</option><option value="T">Other</option></select></Field>
             <Field label="Father / Spouse Name"><input className="input w-full" value={form.profile.fatherOrSpouseName} onChange={(e) => setProfile('fatherOrSpouseName', e.target.value)} required /></Field>
             <Field label="Mother Name"><input className="input w-full" value={form.profile.motherName || ''} onChange={(e) => setProfile('motherName', e.target.value)} /></Field>
-            <Field label="Place Of Birth"><input className="input w-full" value={form.profile.placeOfBirth || ''} onChange={(e) => setProfile('placeOfBirth', e.target.value)} /></Field>
-            <Field label="Occupation"><select className="input w-full" value={form.profile.occupation} onChange={(e) => setProfile('occupation', e.target.value as DistributorUccPayload['profile']['occupation'])}>{OCCUPATIONS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
-            <Field label="Tax Status"><select className="input w-full" value={form.profile.taxStatus} onChange={(e) => setProfile('taxStatus', e.target.value as DistributorUccPayload['profile']['taxStatus'])}>{TAX_STATUS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
-            <Field label="Annual Income"><select className="input w-full" value={form.profile.annualIncome} onChange={(e) => setProfile('annualIncome', e.target.value as DistributorUccPayload['profile']['annualIncome'])}>{INCOMES.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
             <Field label="Marital Status"><select className="input w-full" value={form.profile.maritalStatus} onChange={(e) => setProfile('maritalStatus', e.target.value as DistributorUccPayload['profile']['maritalStatus'])}><option value="SINGLE">SINGLE</option><option value="MARRIED">MARRIED</option><option value="WIDOWED">WIDOWED</option><option value="DIVORCED">DIVORCED</option></select></Field>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={Boolean(form.profile.isPep)} onChange={(e) => setProfile('isPep', e.target.checked)} /> Politically Exposed Person</label>
-            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={Boolean(form.profile.isRelatedToPep)} onChange={(e) => setProfile('isRelatedToPep', e.target.checked)} /> Related To PEP</label>
-          </div>
         </section>
 
         <section className="card space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-sparrow-blue">Address</p>
-          <div className="grid gap-4 md:grid-cols-2">
+          <SectionTitle title="Address" />
+          <div className="grid gap-4 md:grid-cols-3">
             <Field label="Address Line 1"><input className="input w-full" value={form.address.addressLine1} onChange={(e) => setAddress('addressLine1', e.target.value)} required /></Field>
             <Field label="Address Line 2"><input className="input w-full" value={form.address.addressLine2 || ''} onChange={(e) => setAddress('addressLine2', e.target.value)} /></Field>
-            <Field label="City"><input className="input w-full" value={form.address.city} onChange={(e) => setAddress('city', e.target.value)} required /></Field>
-            <Field label="District"><input className="input w-full" value={form.address.district || ''} onChange={(e) => setAddress('district', e.target.value)} /></Field>
+            <Field label="Address Line 3"><input className="input w-full" value={form.address.addressLine3 || ''} onChange={(e) => setAddress('addressLine3', e.target.value)} /></Field>
             <Field label="State"><select className="input w-full" value={form.address.state} onChange={(e) => setAddress('state', e.target.value)}>{STATES.map((state) => <option key={state} value={state}>{state}</option>)}</select></Field>
+            <Field label="City"><input className="input w-full" value={form.address.city} onChange={(e) => setAddress('city', e.target.value)} required /></Field>
             <Field label="Pincode"><input className="input w-full" value={form.address.pincode} onChange={(e) => setAddress('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} required /></Field>
+            <Field label="Occupation"><select className="input w-full" value={form.profile.occupation} onChange={(e) => setProfile('occupation', e.target.value as DistributorUccPayload['profile']['occupation'])}>{OCCUPATIONS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
+            <Field label="Income"><select className="input w-full" value={form.profile.annualIncome} onChange={(e) => setProfile('annualIncome', e.target.value as DistributorUccPayload['profile']['annualIncome'])}>{INCOMES.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
+            <Field label="Source Of Wealth"><select className="input w-full" value={form.address.sourceOfWealth} onChange={(e) => setAddress('sourceOfWealth', e.target.value)}>{SOURCES_OF_WEALTH.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
           </div>
         </section>
 
         <section className="card space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-sparrow-blue">Bank</p>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Account Number"><input className="input w-full" value={form.bank.accountNumber} onChange={(e) => setBank('accountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))} required /></Field>
-            <Field label="IFSC Code"><input className="input w-full uppercase" value={form.bank.ifscCode} onChange={(e) => setBank('ifscCode', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))} required /></Field>
-            <Field label="Bank Name"><input className="input w-full" value={form.bank.bankName} onChange={(e) => setBank('bankName', e.target.value)} required /></Field>
-            <Field label="Account Holder"><input className="input w-full" value={form.bank.accountHolder} onChange={(e) => setBank('accountHolder', e.target.value)} required /></Field>
+          <SectionTitle title="Bank Accounts" />
+          <div className="space-y-5">
+            {form.banks.map((bank, index) => (
+              <div key={index} className="border border-dashed border-gray-200 rounded-2xl p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={Boolean(bank.isDefault)} onChange={(e) => setBank(index, 'isDefault', e.target.checked)} /> Mark as default</label>
+                  {form.banks.length > 1 && <button type="button" onClick={() => removeBank(index)} className="text-xs text-red-500 hover:underline">Remove</button>}
+                </div>
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Field label="Account Type"><select className="input w-full" value={bank.accountType} onChange={(e) => setBank(index, 'accountType', e.target.value)}>{ACCOUNT_TYPES.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
+                  <Field label="IFSC"><input className="input w-full uppercase" value={bank.ifscCode} onChange={(e) => setBank(index, 'ifscCode', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))} required /></Field>
+                  <Field label="Account Number"><input className="input w-full" value={bank.accountNumber} onChange={(e) => setBank(index, 'accountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))} required /></Field>
+                  <Field label="Bank Name"><input className="input w-full" value={bank.bankName} onChange={(e) => setBank(index, 'bankName', e.target.value)} required /></Field>
+                </div>
+                <Field label="Account Holder"><input className="input w-full" value={bank.accountHolder} onChange={(e) => setBank(index, 'accountHolder', e.target.value)} required /></Field>
+              </div>
+            ))}
+            <button type="button" onClick={addBank} className="px-4 py-2.5 rounded-xl border border-green-400 text-green-600 hover:bg-green-50 text-sm font-medium">Add another account</button>
           </div>
         </section>
 
         <section className="card space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-sparrow-blue">Nominee</p>
+          <SectionTitle title="Holding Type" />
           <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Account Holding Type"><select className="input w-full" value={form.profile.holdingType} onChange={(e) => setProfile('holdingType', e.target.value as DistributorUccPayload['profile']['holdingType'])}><option value="SINGLE">Single</option><option value="JOINT">Joint</option><option value="ANYONE_OR_SURVIVOR">Anyone Or Survivor</option></select></Field>
+          </div>
+        </section>
+
+        <section className="card space-y-4">
+          <SectionTitle title="Nominee" />
+          <div className="grid gap-4 md:grid-cols-3">
             <Field label="Nominee Name"><input className="input w-full" value={form.nominees[0].fullName} onChange={(e) => setNomineeField('fullName', e.target.value)} required /></Field>
             <Field label="Relationship"><select className="input w-full" value={form.nominees[0].relationship} onChange={(e) => setNomineeField('relationship', e.target.value)}>{RELATIONSHIPS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
             <Field label="Nominee DOB"><input className="input w-full" type="date" value={form.nominees[0].dob || ''} onChange={(e) => setNomineeField('dob', e.target.value)} /></Field>
             <Field label="Document Number"><input className="input w-full uppercase" value={form.nominees[0].docNumber || ''} onChange={(e) => setNomineeField('docNumber', e.target.value.toUpperCase())} /></Field>
+            <Field label="Guardian Name"><input className="input w-full" value={form.nominees[0].guardianName || ''} onChange={(e) => setNomineeField('guardianName', e.target.value)} /></Field>
+            <Field label="Guardian Relation"><input className="input w-full" value={form.nominees[0].guardianRel || ''} onChange={(e) => setNomineeField('guardianRel', e.target.value)} /></Field>
           </div>
+        </section>
+
+        <section className="card space-y-4">
+          <SectionTitle title="Documents" />
+          <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-800">
+            PAN, Aadhaar, photo, signature and bank proof upload can be collected in the next step. This structured section is added to match distributor onboarding flow.
+          </div>
+        </section>
+
+        <section className="card space-y-4">
+          <SectionTitle title="Verification" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Source"><select className="input w-full" value={form.verification?.source} onChange={(e) => setVerification('source', e.target.value)}>{VERIFICATION_SOURCES.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
+            <Field label="Source Details"><input className="input w-full" value={form.verification?.sourceDetails || ''} onChange={(e) => setVerification('sourceDetails', e.target.value)} placeholder="Source Details" /></Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={Boolean(form.verification?.termsAccepted)} onChange={(e) => setVerification('termsAccepted', e.target.checked)} /> I have read and agree to the Terms & Conditions</label>
         </section>
 
         <button type="submit" disabled={loading} className="btn-primary inline-flex items-center justify-center gap-2">
@@ -281,4 +381,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
+}
+
+function SectionTitle({ title }: { title: string }) {
+  return <p className="text-base font-semibold text-orange-500 border-b border-gray-200 pb-2">{title}</p>;
 }

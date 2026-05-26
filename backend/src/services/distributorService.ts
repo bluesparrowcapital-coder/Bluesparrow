@@ -202,10 +202,15 @@ export async function createClientForDistributor(distributorId: string, data: {
   email: string;
   phone: string;
   panNumber: string;
+  mobileDeclaration?: 'SELF' | 'FAMILY' | 'OTHER';
+  mailDeclaration?: 'SELF' | 'FAMILY' | 'OTHER';
   profile: {
     fullNameAsPan: string;
     dob: string;
     gender: 'M' | 'F' | 'T';
+    pepCategory?: 'NOT_EXPOSED' | 'PEP' | 'RELATED_PEP';
+    countryOfBirth?: string;
+    cityOfBirth?: string;
     fatherOrSpouseName: string;
     motherName?: string;
     placeOfBirth?: string;
@@ -220,19 +225,22 @@ export async function createClientForDistributor(distributorId: string, data: {
   address: {
     addressLine1: string;
     addressLine2?: string;
+    addressLine3?: string;
     city: string;
     district?: string;
     state: string;
     pincode: string;
     country?: string;
+    sourceOfWealth?: string;
   };
-  bank: {
+  banks: Array<{
     accountNumber: string;
     ifscCode: string;
     bankName: string;
     accountHolder: string;
     accountType?: 'SB' | 'CA' | 'NRE' | 'NRO';
-  };
+    isDefault?: boolean;
+  }>;
   nominees: Array<{
     fullName: string;
     relationship: string;
@@ -245,6 +253,11 @@ export async function createClientForDistributor(distributorId: string, data: {
     email?: string;
     phone?: string;
   }>;
+  verification?: {
+    source?: string;
+    sourceDetails?: string;
+    termsAccepted?: boolean;
+  };
 }) {
   const normalizedPhone = data.phone.trim();
   const normalizedEmail = data.email.trim().toLowerCase();
@@ -261,6 +274,7 @@ export async function createClientForDistributor(distributorId: string, data: {
   if (existingEmail) throw new Error('Email already registered');
   if (existingPan) throw new Error('PAN already registered');
   if (!data.nominees.length) throw new Error('At least one nominee is required');
+  if (!data.banks.length) throw new Error('At least one bank account is required');
 
   const pinHash = await bcrypt.hash(tempPassword, 12);
 
@@ -298,7 +312,7 @@ export async function createClientForDistributor(distributorId: string, data: {
         gender: data.profile.gender,
         fatherOrSpouseName: data.profile.fatherOrSpouseName.trim(),
         motherName: data.profile.motherName?.trim() || null,
-        placeOfBirth: data.profile.placeOfBirth?.trim() || null,
+        placeOfBirth: data.profile.cityOfBirth?.trim() || data.profile.placeOfBirth?.trim() || null,
         maritalStatus: data.profile.maritalStatus || null,
         holdingType: data.profile.holdingType || 'SINGLE',
         occupation: data.profile.occupation,
@@ -306,8 +320,8 @@ export async function createClientForDistributor(distributorId: string, data: {
         annualIncome: data.profile.annualIncome || null,
         email: normalizedEmail,
         mobile: normalizedPhone,
-        isPep: Boolean(data.profile.isPep),
-        isRelatedToPep: Boolean(data.profile.isRelatedToPep),
+        isPep: data.profile.pepCategory ? data.profile.pepCategory === 'PEP' : Boolean(data.profile.isPep),
+        isRelatedToPep: data.profile.pepCategory ? data.profile.pepCategory === 'RELATED_PEP' : Boolean(data.profile.isRelatedToPep),
       },
     });
 
@@ -354,17 +368,18 @@ export async function createClientForDistributor(distributorId: string, data: {
       })),
     });
 
-    await tx.bankAccount.create({
-      data: {
+    const banks = data.banks.filter((bank) => bank.accountNumber && bank.ifscCode && bank.bankName && bank.accountHolder);
+    await tx.bankAccount.createMany({
+      data: banks.map((bank, index) => ({
         userId: createdUser.id,
-        accountNumber: data.bank.accountNumber.trim(),
-        ifscCode: data.bank.ifscCode.trim().toUpperCase(),
-        bankName: data.bank.bankName.trim(),
-        accountHolder: data.bank.accountHolder.trim(),
-        accountType: data.bank.accountType || 'SB',
-        isDefault: true,
+        accountNumber: bank.accountNumber.trim(),
+        ifscCode: bank.ifscCode.trim().toUpperCase(),
+        bankName: bank.bankName.trim(),
+        accountHolder: bank.accountHolder.trim(),
+        accountType: bank.accountType || 'SB',
+        isDefault: bank.isDefault ?? index === 0,
         isVerified: false,
-      },
+      })),
     });
 
     await tx.user.update({
