@@ -277,19 +277,19 @@ export default function AddClientPage() {
   const uploadedDocumentCount = Object.values(documents).filter(Boolean).length;
 
   return (
-    <div className="space-y-6 max-w-6xl pb-8">
+    <div className="space-y-6 w-full max-w-[1380px] pb-8">
       <button onClick={() => navigate('/distributor/clients')} className="text-sm text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
         <ArrowLeft className="w-4 h-4" /> Back to clients
       </button>
 
       <div className="rounded-[28px] border border-orange-100 bg-[linear-gradient(135deg,#fff6ed_0%,#ffffff_55%,#eef6ff_100%)] p-6 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-end">
+          <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-500">Distributor Desk</p>
             <h1 className="mt-3 text-3xl font-bold text-gray-900">Create NSE UCC Account</h1>
             <p className="text-sm text-gray-600 mt-2">Structured client creation with KYC, contact declarations, bank setup, document uploads and verification in one screen.</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 grid-cols-3 xl:self-start">
             <HeroStat icon={<FileBadge2 className="w-4 h-4" />} label="Sections" value="8" />
             <HeroStat icon={<UploadCloud className="w-4 h-4" />} label="Docs Ready" value={String(uploadedDocumentCount)} />
             <HeroStat icon={<Landmark className="w-4 h-4" />} label="Banks" value={String(form.banks.length)} />
@@ -297,10 +297,10 @@ export default function AddClientPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <section className="card space-y-4 border border-gray-100 shadow-sm">
+      <form onSubmit={handleSubmit} className="grid gap-5 xl:grid-cols-12 xl:items-start">
+        <section className="card space-y-4 border border-gray-100 shadow-sm xl:col-span-8">
           <SectionTitle title="KYC Information" />
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="Tax Status"><select className="input w-full" value={form.profile.taxStatus} onChange={(e) => setProfile('taxStatus', e.target.value as DistributorUccPayload['profile']['taxStatus'])}>{TAX_STATUS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
             <Field label="PAN"><input className="input w-full uppercase" value={form.panNumber} onChange={(e) => setRoot('panNumber', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} maxLength={10} required /></Field>
             <Field label="Full Name"><input className="input w-full" value={form.fullName} onChange={(e) => setRoot('fullName', e.target.value)} required /></Field>
@@ -312,10 +312,12 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4 border border-gray-100 shadow-sm">
+        <section className="card space-y-4 border border-gray-100 shadow-sm xl:col-span-4">
           <SectionTitle title="Personal Details" />
-          <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Gender"><div className="flex gap-5 pt-2 text-sm text-gray-700"><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'M'} onChange={() => setProfile('gender', 'M')} /> Male</label><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'F'} onChange={() => setProfile('gender', 'F')} /> Female</label><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'T'} onChange={() => setProfile('gender', 'T')} /> Other</label></div></Field>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+            <div className="md:col-span-2">
+              <Field label="Gender"><div className="flex flex-wrap gap-5 pt-2 text-sm text-gray-700"><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'M'} onChange={() => setProfile('gender', 'M')} /> Male</label><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'F'} onChange={() => setProfile('gender', 'F')} /> Female</label><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'T'} onChange={() => setProfile('gender', 'T')} /> Other</label></div></Field>
+            </div>
             <Field label="I Am"><select className="input w-full" value={form.profile.pepCategory} onChange={(e) => setProfile('pepCategory', e.target.value as DistributorUccPayload['profile']['pepCategory'])}><option value="NOT_EXPOSED">Politically not exposed person</option><option value="PEP">Politically exposed person</option><option value="RELATED_PEP">Related to politically exposed person</option></select></Field>
             <Field label="Country Of Birth"><input className="input w-full" value={form.profile.countryOfBirth || ''} onChange={(e) => setProfile('countryOfBirth', e.target.value)} /></Field>
             <Field label="City Of Birth"><input className="input w-full" value={form.profile.cityOfBirth || ''} onChange={(e) => setProfile('cityOfBirth', e.target.value)} /></Field>
@@ -326,9 +328,9 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4 border border-gray-100 shadow-sm">
+        <section className="card space-y-4 border border-gray-100 shadow-sm xl:col-span-7">
           <SectionTitle title="Address" />
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Address Line 1"><input className="input w-full" value={form.address.addressLine1} onChange={(e) => setAddress('addressLine1', e.target.value)} required /></Field>
             <Field label="Address Line 2"><input className="input w-full" value={form.address.addressLine2 || ''} onChange={(e) => setAddress('addressLine2', e.target.value)} /></Field>
             <Field label="Address Line 3"><input className="input w-full" value={form.address.addressLine3 || ''} onChange={(e) => setAddress('addressLine3', e.target.value)} /></Field>
@@ -341,7 +343,7 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4 border border-gray-100 shadow-sm">
+        <section className="card space-y-4 border border-gray-100 shadow-sm xl:col-span-5">
           <SectionTitle title="Bank Accounts" />
           <div className="space-y-5">
             {form.banks.map((bank, index) => (
@@ -350,7 +352,7 @@ export default function AddClientPage() {
                   <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={Boolean(bank.isDefault)} onChange={(e) => setBank(index, 'isDefault', e.target.checked)} /> Mark as default</label>
                   {form.banks.length > 1 && <button type="button" onClick={() => removeBank(index)} className="text-xs text-red-500 hover:underline">Remove</button>}
                 </div>
-                <div className="grid gap-4 md:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
                   <Field label="Account Type"><select className="input w-full" value={bank.accountType} onChange={(e) => setBank(index, 'accountType', e.target.value)}>{ACCOUNT_TYPES.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
                   <Field label="IFSC"><input className="input w-full uppercase" value={bank.ifscCode} onChange={(e) => setBank(index, 'ifscCode', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))} required /></Field>
                   <Field label="Account Number"><input className="input w-full" value={bank.accountNumber} onChange={(e) => setBank(index, 'accountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))} required /></Field>
@@ -363,16 +365,16 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4 border border-gray-100 shadow-sm">
+        <section className="card space-y-4 border border-gray-100 shadow-sm xl:col-span-4">
           <SectionTitle title="Holding Type" />
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Account Holding Type"><select className="input w-full" value={form.profile.holdingType} onChange={(e) => setProfile('holdingType', e.target.value as DistributorUccPayload['profile']['holdingType'])}><option value="SINGLE">Single</option><option value="JOINT">Joint</option><option value="ANYONE_OR_SURVIVOR">Anyone Or Survivor</option></select></Field>
           </div>
         </section>
 
-        <section className="card space-y-4 border border-gray-100 shadow-sm">
+        <section className="card space-y-4 border border-gray-100 shadow-sm xl:col-span-8">
           <SectionTitle title="Nominee" />
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Nominee Name"><input className="input w-full" value={form.nominees[0].fullName} onChange={(e) => setNomineeField('fullName', e.target.value)} required /></Field>
             <Field label="Relationship"><select className="input w-full" value={form.nominees[0].relationship} onChange={(e) => setNomineeField('relationship', e.target.value)}>{RELATIONSHIPS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
             <Field label="Nominee DOB"><input className="input w-full" type="date" value={form.nominees[0].dob || ''} onChange={(e) => setNomineeField('dob', e.target.value)} /></Field>
@@ -382,7 +384,7 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4 border border-gray-100 shadow-sm">
+        <section className="card space-y-4 border border-gray-100 shadow-sm xl:col-span-7">
           <SectionTitle title="Documents" />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {DOCUMENT_FIELDS.map((document) => (
@@ -401,7 +403,7 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4 border border-gray-100 shadow-sm">
+        <section className="card space-y-4 border border-gray-100 shadow-sm xl:col-span-5 xl:sticky xl:top-6">
           <SectionTitle title="Verification" />
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Source"><select className="input w-full" value={form.verification?.source} onChange={(e) => setVerification('source', e.target.value)}>{VERIFICATION_SOURCES.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
@@ -410,7 +412,7 @@ export default function AddClientPage() {
           <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={Boolean(form.verification?.termsAccepted)} onChange={(e) => setVerification('termsAccepted', e.target.checked)} /> I have read and agree to the Terms & Conditions</label>
         </section>
 
-        <div className="sticky bottom-4 z-10 rounded-2xl border border-gray-200 bg-white/95 backdrop-blur px-4 py-3 shadow-lg flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky bottom-4 z-10 rounded-2xl border border-gray-200 bg-white/95 backdrop-blur px-4 py-3 shadow-lg flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between xl:col-span-12">
           <div className="text-sm text-gray-600 flex items-center gap-2">
             <MapPinned className="w-4 h-4 text-orange-500" />
             {uploadedDocumentCount} document{uploadedDocumentCount === 1 ? '' : 's'} attached. Default password will still be mobile + PAN.
@@ -440,7 +442,7 @@ function SectionTitle({ title }: { title: string }) {
 
 function HeroStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="min-w-[120px] rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-sm">
+    <div className="min-w-0 rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-sm">
       <div className="flex items-center gap-2 text-orange-500">{icon}<span className="text-xs font-semibold uppercase tracking-wide">{label}</span></div>
       <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
     </div>
