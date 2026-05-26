@@ -108,7 +108,7 @@ export default function FundResearchPage() {
   const load = useCallback(async (q: string, cat: string) => {
     setLoading(true);
     try {
-      const res = await fundService.list({ search: q, category: cat, limit: 30, page: 1 });
+        const res = await fundService.list({ q, category: cat, limit: 30, page: 1 });
       setFunds(res.funds);
     } catch { toast.error('Failed to load funds'); }
     finally  { setLoading(false); }
