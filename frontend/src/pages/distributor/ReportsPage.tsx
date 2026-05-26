@@ -46,7 +46,7 @@ function AumTab() {
       .finally(() => setLoading(false));
   }, [group]);
 
-  const total = aumData.reduce((s, r) => s + r.totalAUM, 0);
+  const total = aumData.reduce((s, r) => s + r.aum, 0);
 
   return (
     <div className="space-y-4">
@@ -92,9 +92,9 @@ function AumTab() {
                     <td className="px-3 py-2.5 font-medium text-gray-800">
                       {group === 'category' ? r.category : r.fundName}
                     </td>
-                    <td className="px-3 py-2.5 text-sparrow-blue font-semibold">{fmt(r.totalAUM)}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{r.clientCount}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{r.clientCount ? fmt(r.totalAUM / r.clientCount) : '—'}</td>
+                    <td className="px-3 py-2.5 text-sparrow-blue font-semibold">{fmt(r.aum)}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{r.count ?? r.folioCount ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{r.count ? fmt(r.aum / r.count) : '—'}</td>
                   </tr>
                 ))}
                 {aumData.length === 0 && (
@@ -144,10 +144,10 @@ function SipTab() {
       {sipSummary && (
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Active SIPs',  value: sipSummary.activeSips,   cls: 'text-green-600' },
-            { label: 'Monthly Book', value: fmt(sipSummary.totalSipAmount), cls: 'text-sparrow-blue' },
-            { label: 'Paused',       value: sipSummary.pausedSips,   cls: 'text-yellow-600' },
-            { label: 'Total SIPs',   value: sipSummary.totalSips,    cls: 'text-gray-900' },
+            { label: 'Active SIPs',  value: sipSummary.active,      cls: 'text-green-600' },
+            { label: 'Monthly Book', value: fmt(sipSummary.totalMonthly), cls: 'text-sparrow-blue' },
+            { label: 'Paused',       value: sipSummary.paused,       cls: 'text-yellow-600' },
+            { label: 'Total SIPs',   value: sipSummary.active + sipSummary.paused + sipSummary.cancelled + sipSummary.completed, cls: 'text-gray-900' },
           ].map(c => (
             <div key={c.label} className="card py-3">
               <p className="text-xs text-gray-500 mb-0.5">{c.label}</p>

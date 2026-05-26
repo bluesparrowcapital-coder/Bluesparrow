@@ -54,7 +54,7 @@ function FundSelector({ value, onChange }: { value: string; onChange: (f: Fund) 
 
   useEffect(() => {
     if (q.length < 2) { setFunds([]); return; }
-    fundService.getFunds({ search: q, limit: 10, page: 1 }).then(r => setFunds(r.funds)).catch(() => {});
+    fundService.list({ search: q, limit: 10, page: 1 }).then((r: { funds: Fund[] }) => setFunds(r.funds)).catch(() => {});
   }, [q]);
 
   return (
