@@ -196,8 +196,13 @@ model ClientProfile {
   // Personal Details
   panNumber           String              @unique
   fullNameAsPan       String              // Name exactly as on PAN card
+  mobileDeclaration   String?             // SELF / FAMILY / OTHER
+  mailDeclaration     String?             // SELF / FAMILY / OTHER
   dob                 DateTime
   gender              String              // M / F / T
+  pepCategory         String?             // NOT_EXPOSED / PEP / RELATED_PEP
+  countryOfBirth      String?
+  cityOfBirth         String?
   fatherOrSpouseName  String
   motherName          String?
   placeOfBirth        String?             // City/town of birth
@@ -214,6 +219,9 @@ model ClientProfile {
   // PEP (Politically Exposed Person) — SEBI mandatory
   isPep               Boolean             @default(false)
   isRelatedToPep      Boolean             @default(false)
+  verificationSource  String?
+  verificationDetails String?
+  termsAcceptedAt     DateTime?
 
   // NSE MF Registration
   nseClientCode       String?             @unique  // NSE MF assigned client code
@@ -243,11 +251,13 @@ model Address {
   type         AddressType
   addressLine1 String
   addressLine2 String?
+  addressLine3 String?
   city         String
   district     String?
   state        String
   pincode      String
   country      String      @default("India")
+  sourceOfWealth String?
   isPrimary    Boolean     @default(false)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt

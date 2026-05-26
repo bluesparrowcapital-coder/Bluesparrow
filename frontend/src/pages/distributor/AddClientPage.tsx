@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, UserPlus, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Copy, FileBadge2, Landmark, MapPinned, ShieldCheck, UploadCloud, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { distributorService, CreatedDistributorClient, DistributorUccPayload } from '../../services/distributorService';
+import { distributorService, CreatedDistributorClient, DistributorClientDocuments, DistributorUccPayload } from '../../services/distributorService';
 
 const STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
@@ -17,6 +17,13 @@ const DECLARATIONS = ['SELF', 'FAMILY', 'OTHER'] as const;
 const SOURCES_OF_WEALTH = ['SALARY', 'BUSINESS_INCOME', 'PROFESSIONAL_INCOME', 'AGRICULTURE', 'INHERITANCE', 'SAVINGS', 'OTHER'] as const;
 const VERIFICATION_SOURCES = ['MANUAL', 'CALL', 'BRANCH_VISIT', 'DIGILOCKER', 'NSEMF'] as const;
 const ACCOUNT_TYPES = ['SB', 'CA', 'NRE', 'NRO'] as const;
+const DOCUMENT_FIELDS: Array<{ key: keyof DistributorClientDocuments; label: string; accept?: string; hint: string }> = [
+  { key: 'panDocument', label: 'PAN Card', accept: '.pdf,image/*', hint: 'Upload PAN copy' },
+  { key: 'aadhaarDocument', label: 'Aadhaar Card', accept: '.pdf,image/*', hint: 'Front or merged Aadhaar copy' },
+  { key: 'photoDocument', label: 'Client Photo', accept: 'image/*', hint: 'Passport-size photo' },
+  { key: 'signatureDocument', label: 'Signature', accept: 'image/*', hint: 'Signed white-sheet image' },
+  { key: 'bankProofDocument', label: 'Bank Proof', accept: '.pdf,image/*', hint: 'Cancelled cheque or bank statement' },
+];
 
 const INIT: DistributorUccPayload = {
   fullName: '',
@@ -85,6 +92,14 @@ const INIT: DistributorUccPayload = {
   },
 };
 
+const EMPTY_DOCUMENTS: DistributorClientDocuments = {
+  panDocument: null,
+  aadhaarDocument: null,
+  photoDocument: null,
+  signatureDocument: null,
+  bankProofDocument: null,
+};
+
 function emptyBank() {
   return {
     accountNumber: '',
@@ -99,6 +114,7 @@ function emptyBank() {
 export default function AddClientPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState<DistributorUccPayload>(INIT);
+  const [documents, setDocuments] = useState<DistributorClientDocuments>(EMPTY_DOCUMENTS);
   const [loading, setLoading] = useState(false);
   const [created, setCreated] = useState<CreatedDistributorClient | null>(null);
 
@@ -150,6 +166,10 @@ export default function AddClientPage() {
     setForm((current) => ({ ...current, nominees: [{ ...current.nominees[0], [field]: value }] }));
   }
 
+  function setDocument(field: keyof DistributorClientDocuments, file: File | null) {
+    setDocuments((current) => ({ ...current, [field]: file }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -170,7 +190,7 @@ export default function AddClientPage() {
           isDefault: bank.isDefault ?? index === 0,
         })),
       };
-      const result = await distributorService.createClient(payload);
+      const result = await distributorService.createClient(payload, documents);
       setCreated(result);
       toast.success('NSE UCC client created successfully');
     } catch (err: any) {
@@ -243,6 +263,7 @@ export default function AddClientPage() {
             onClick={() => {
               setCreated(null);
               setForm(INIT);
+              setDocuments(EMPTY_DOCUMENTS);
             }}
             className="btn-secondary"
           >
@@ -253,19 +274,31 @@ export default function AddClientPage() {
     );
   }
 
+  const uploadedDocumentCount = Object.values(documents).filter(Boolean).length;
+
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-6 max-w-6xl pb-8">
       <button onClick={() => navigate('/distributor/clients')} className="text-sm text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
         <ArrowLeft className="w-4 h-4" /> Back to clients
       </button>
 
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Create NSE UCC Account</h1>
-        <p className="text-sm text-gray-500 mt-1">Structured distributor-side client creation with KYC, address, bank, holding and verification fields.</p>
+      <div className="rounded-[28px] border border-orange-100 bg-[linear-gradient(135deg,#fff6ed_0%,#ffffff_55%,#eef6ff_100%)] p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-500">Distributor Desk</p>
+            <h1 className="mt-3 text-3xl font-bold text-gray-900">Create NSE UCC Account</h1>
+            <p className="text-sm text-gray-600 mt-2">Structured client creation with KYC, contact declarations, bank setup, document uploads and verification in one screen.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <HeroStat icon={<FileBadge2 className="w-4 h-4" />} label="Sections" value="8" />
+            <HeroStat icon={<UploadCloud className="w-4 h-4" />} label="Docs Ready" value={String(uploadedDocumentCount)} />
+            <HeroStat icon={<Landmark className="w-4 h-4" />} label="Banks" value={String(form.banks.length)} />
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <section className="card space-y-4">
+        <section className="card space-y-4 border border-gray-100 shadow-sm">
           <SectionTitle title="KYC Information" />
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Tax Status"><select className="input w-full" value={form.profile.taxStatus} onChange={(e) => setProfile('taxStatus', e.target.value as DistributorUccPayload['profile']['taxStatus'])}>{TAX_STATUS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
@@ -279,7 +312,7 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4">
+        <section className="card space-y-4 border border-gray-100 shadow-sm">
           <SectionTitle title="Personal Details" />
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Gender"><div className="flex gap-5 pt-2 text-sm text-gray-700"><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'M'} onChange={() => setProfile('gender', 'M')} /> Male</label><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'F'} onChange={() => setProfile('gender', 'F')} /> Female</label><label className="flex items-center gap-2"><input type="radio" checked={form.profile.gender === 'T'} onChange={() => setProfile('gender', 'T')} /> Other</label></div></Field>
@@ -293,7 +326,7 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4">
+        <section className="card space-y-4 border border-gray-100 shadow-sm">
           <SectionTitle title="Address" />
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Address Line 1"><input className="input w-full" value={form.address.addressLine1} onChange={(e) => setAddress('addressLine1', e.target.value)} required /></Field>
@@ -308,7 +341,7 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4">
+        <section className="card space-y-4 border border-gray-100 shadow-sm">
           <SectionTitle title="Bank Accounts" />
           <div className="space-y-5">
             {form.banks.map((bank, index) => (
@@ -330,14 +363,14 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4">
+        <section className="card space-y-4 border border-gray-100 shadow-sm">
           <SectionTitle title="Holding Type" />
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Account Holding Type"><select className="input w-full" value={form.profile.holdingType} onChange={(e) => setProfile('holdingType', e.target.value as DistributorUccPayload['profile']['holdingType'])}><option value="SINGLE">Single</option><option value="JOINT">Joint</option><option value="ANYONE_OR_SURVIVOR">Anyone Or Survivor</option></select></Field>
           </div>
         </section>
 
-        <section className="card space-y-4">
+        <section className="card space-y-4 border border-gray-100 shadow-sm">
           <SectionTitle title="Nominee" />
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Nominee Name"><input className="input w-full" value={form.nominees[0].fullName} onChange={(e) => setNomineeField('fullName', e.target.value)} required /></Field>
@@ -349,14 +382,26 @@ export default function AddClientPage() {
           </div>
         </section>
 
-        <section className="card space-y-4">
+        <section className="card space-y-4 border border-gray-100 shadow-sm">
           <SectionTitle title="Documents" />
-          <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-800">
-            PAN, Aadhaar, photo, signature and bank proof upload can be collected in the next step. This structured section is added to match distributor onboarding flow.
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {DOCUMENT_FIELDS.map((document) => (
+              <DocumentInputCard
+                key={document.key}
+                label={document.label}
+                hint={document.hint}
+                accept={document.accept}
+                file={documents[document.key] ?? null}
+                onChange={(file) => setDocument(document.key, file)}
+              />
+            ))}
+          </div>
+          <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
+            Files are uploaded with the client creation request and stored against the investor KYC record.
           </div>
         </section>
 
-        <section className="card space-y-4">
+        <section className="card space-y-4 border border-gray-100 shadow-sm">
           <SectionTitle title="Verification" />
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Source"><select className="input w-full" value={form.verification?.source} onChange={(e) => setVerification('source', e.target.value)}>{VERIFICATION_SOURCES.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
@@ -365,10 +410,16 @@ export default function AddClientPage() {
           <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={Boolean(form.verification?.termsAccepted)} onChange={(e) => setVerification('termsAccepted', e.target.checked)} /> I have read and agree to the Terms & Conditions</label>
         </section>
 
-        <button type="submit" disabled={loading} className="btn-primary inline-flex items-center justify-center gap-2">
-          <UserPlus className="w-4 h-4" />
-          {loading ? 'Creating NSE UCC...' : 'Create NSE UCC Account'}
-        </button>
+        <div className="sticky bottom-4 z-10 rounded-2xl border border-gray-200 bg-white/95 backdrop-blur px-4 py-3 shadow-lg flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-gray-600 flex items-center gap-2">
+            <MapPinned className="w-4 h-4 text-orange-500" />
+            {uploadedDocumentCount} document{uploadedDocumentCount === 1 ? '' : 's'} attached. Default password will still be mobile + PAN.
+          </div>
+          <button type="submit" disabled={loading} className="btn-primary inline-flex items-center justify-center gap-2 min-w-[220px]">
+            <UserPlus className="w-4 h-4" />
+            {loading ? 'Creating NSE UCC...' : 'Create NSE UCC Account'}
+          </button>
+        </div>
       </form>
     </div>
   );
@@ -385,4 +436,48 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function SectionTitle({ title }: { title: string }) {
   return <p className="text-base font-semibold text-orange-500 border-b border-gray-200 pb-2">{title}</p>;
+}
+
+function HeroStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="min-w-[120px] rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-2 text-orange-500">{icon}<span className="text-xs font-semibold uppercase tracking-wide">{label}</span></div>
+      <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+function DocumentInputCard({
+  label,
+  hint,
+  accept,
+  file,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  accept?: string;
+  file: File | null;
+  onChange: (file: File | null) => void;
+}) {
+  return (
+    <label className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/80 p-4 hover:border-orange-300 hover:bg-orange-50/40 transition cursor-pointer block">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-orange-500 shrink-0">
+          <UploadCloud className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900">{label}</p>
+          <p className="text-xs text-gray-500 mt-1">{hint}</p>
+          <p className="text-xs text-gray-700 mt-3 truncate">{file ? file.name : 'Choose file'}</p>
+        </div>
+      </div>
+      <input
+        type="file"
+        accept={accept}
+        className="sr-only"
+        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+      />
+    </label>
+  );
 }

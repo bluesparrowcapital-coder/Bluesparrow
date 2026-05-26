@@ -258,6 +258,10 @@ export async function createClientForDistributor(distributorId: string, data: {
     sourceDetails?: string;
     termsAccepted?: boolean;
   };
+  documents?: Array<{
+    docType: string;
+    docUrl: string;
+  }>;
 }) {
   const normalizedPhone = data.phone.trim();
   const normalizedEmail = data.email.trim().toLowerCase();
@@ -308,8 +312,13 @@ export async function createClientForDistributor(distributorId: string, data: {
         userId: createdUser.id,
         panNumber: normalizedPan,
         fullNameAsPan: data.profile.fullNameAsPan.trim().toUpperCase(),
+        mobileDeclaration: data.mobileDeclaration || null,
+        mailDeclaration: data.mailDeclaration || null,
         dob: new Date(data.profile.dob),
         gender: data.profile.gender,
+        pepCategory: data.profile.pepCategory || null,
+        countryOfBirth: data.profile.countryOfBirth?.trim() || null,
+        cityOfBirth: data.profile.cityOfBirth?.trim() || null,
         fatherOrSpouseName: data.profile.fatherOrSpouseName.trim(),
         motherName: data.profile.motherName?.trim() || null,
         placeOfBirth: data.profile.cityOfBirth?.trim() || data.profile.placeOfBirth?.trim() || null,
@@ -322,6 +331,9 @@ export async function createClientForDistributor(distributorId: string, data: {
         mobile: normalizedPhone,
         isPep: data.profile.pepCategory ? data.profile.pepCategory === 'PEP' : Boolean(data.profile.isPep),
         isRelatedToPep: data.profile.pepCategory ? data.profile.pepCategory === 'RELATED_PEP' : Boolean(data.profile.isRelatedToPep),
+        verificationSource: data.verification?.source?.trim() || null,
+        verificationDetails: data.verification?.sourceDetails?.trim() || null,
+        termsAcceptedAt: data.verification?.termsAccepted ? new Date() : null,
       },
     });
 
@@ -332,22 +344,26 @@ export async function createClientForDistributor(distributorId: string, data: {
           type: 'PERMANENT',
           addressLine1: data.address.addressLine1.trim(),
           addressLine2: data.address.addressLine2?.trim() || null,
+          addressLine3: data.address.addressLine3?.trim() || null,
           city: data.address.city.trim(),
           district: data.address.district?.trim() || null,
           state: data.address.state.trim(),
           pincode: data.address.pincode.trim(),
           country: data.address.country?.trim() || 'India',
+          sourceOfWealth: data.address.sourceOfWealth?.trim() || null,
         },
         {
           userId: createdUser.id,
           type: 'CORRESPONDENCE',
           addressLine1: data.address.addressLine1.trim(),
           addressLine2: data.address.addressLine2?.trim() || null,
+          addressLine3: data.address.addressLine3?.trim() || null,
           city: data.address.city.trim(),
           district: data.address.district?.trim() || null,
           state: data.address.state.trim(),
           pincode: data.address.pincode.trim(),
           country: data.address.country?.trim() || 'India',
+          sourceOfWealth: data.address.sourceOfWealth?.trim() || null,
         },
       ],
     });
@@ -381,6 +397,16 @@ export async function createClientForDistributor(distributorId: string, data: {
         isVerified: false,
       })),
     });
+
+    if (data.documents?.length) {
+      await tx.kycDocument.createMany({
+        data: data.documents.map((document) => ({
+          userId: createdUser.id,
+          docType: document.docType,
+          docUrl: document.docUrl,
+        })),
+      });
+    }
 
     await tx.user.update({
       where: { id: createdUser.id },

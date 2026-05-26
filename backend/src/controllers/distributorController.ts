@@ -108,7 +108,23 @@ export async function listClients(req: AuthRequest, res: Response) {
 export async function createClient(req: AuthRequest, res: Response) {
   try {
     const distributorId = await resolveDistributorId(req.user!.userId);
-    const { fullName, email, phone, panNumber, profile, address, banks, nominees, verification, mobileDeclaration, mailDeclaration } = req.body;
+    const parsedBody = typeof req.body.payload === 'string' ? JSON.parse(req.body.payload) : req.body;
+    const { fullName, email, phone, panNumber, profile, address, banks, nominees, verification, mobileDeclaration, mailDeclaration } = parsedBody;
+    const uploadedFiles = (req.files ?? {}) as Record<string, Express.Multer.File[]>;
+    const documentFieldMap: Record<string, string> = {
+      panDocument: 'PAN',
+      aadhaarDocument: 'AADHAAR',
+      photoDocument: 'PHOTO',
+      signatureDocument: 'SIGNATURE',
+      bankProofDocument: 'BANK',
+    };
+    const documents = Object.entries(documentFieldMap)
+      .map(([fieldName, docType]) => {
+        const file = uploadedFiles[fieldName]?.[0];
+        if (!file) return null;
+        return { docType, docUrl: `/uploads/distributor/${file.filename}` };
+      })
+      .filter((item): item is { docType: string; docUrl: string } => Boolean(item));
 
     if (!fullName || !email || !phone || !panNumber || !profile || !address || !Array.isArray(banks) || banks.length === 0 || !Array.isArray(nominees) || nominees.length === 0) {
       return res.status(400).json({ success: false, message: 'fullName, email, phone, panNumber, profile, address, banks and nominees are required' });
@@ -144,6 +160,7 @@ export async function createClient(req: AuthRequest, res: Response) {
       banks,
       nominees,
       verification,
+      documents,
     });
     await svc.createAuditLog(
       distributorId,
@@ -160,6 +177,7 @@ export async function createClient(req: AuthRequest, res: Response) {
         sourceOfWealth: address.sourceOfWealth,
         bankCount: banks.length,
         verificationSource: verification?.source,
+        uploadedDocumentTypes: documents.map((document) => document.docType),
       },
       req.ip,
     );

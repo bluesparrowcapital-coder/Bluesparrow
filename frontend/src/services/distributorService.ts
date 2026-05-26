@@ -48,6 +48,14 @@ export interface CreatedDistributorClient {
   } | null;
 }
 
+export interface DistributorClientDocuments {
+  panDocument?: File | null;
+  aadhaarDocument?: File | null;
+  photoDocument?: File | null;
+  signatureDocument?: File | null;
+  bankProofDocument?: File | null;
+}
+
 export interface DistributorUccPayload {
   fullName: string;
   email: string;
@@ -190,8 +198,17 @@ export const distributorService = {
     const { data } = await api.get('/distributor/clients', { params: { search, page, limit } });
     return { clients: data.clients, total: data.total };
   },
-  createClient: async (payload: DistributorUccPayload): Promise<CreatedDistributorClient> => {
-    const { data } = await api.post('/distributor/clients', payload);
+  createClient: async (payload: DistributorUccPayload, documents?: DistributorClientDocuments): Promise<CreatedDistributorClient> => {
+    const formData = new FormData();
+    formData.append('payload', JSON.stringify(payload));
+
+    Object.entries(documents ?? {}).forEach(([field, file]) => {
+      if (file) formData.append(field, file);
+    });
+
+    const { data } = await api.post('/distributor/clients', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return { user: data.user, tempPassword: data.tempPassword, nseResult: data.nseResult };
   },
   getClientDetail: async (clientId: string): Promise<ClientDetail> => {

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/authMiddleware';
+import { distributorClientUpload } from '../middleware/distributorUploadMiddleware';
 import * as ctrl from '../controllers/distributorController';
 
 const router = Router();
@@ -20,7 +21,7 @@ router.get('/dashboard',   ctrl.getDashboard);
 
 // ─── Clients ──────────────────────────────────────────────
 router.get('/clients',              ctrl.listClients);
-router.post('/clients',             ctrl.createClient);
+router.post('/clients',             distributorClientUpload, ctrl.createClient);
 router.get('/clients/:clientId',    ctrl.getClientDetail);
 
 // ─── Reports ──────────────────────────────────────────────

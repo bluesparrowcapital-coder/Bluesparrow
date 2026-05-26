@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 import { connectRedis } from './utils/redis';
 import { logger } from './utils/logger';
 import authRoutes from './routes/authRoutes';
@@ -35,6 +37,10 @@ app.use(cors({
 app.use(compression());
 app.use(express.json({ limit: '10kb' }));   // Limit payload size
 app.use(express.urlencoded({ extended: true }));
+
+const uploadRoot = path.resolve(process.cwd(), 'uploads');
+fs.mkdirSync(uploadRoot, { recursive: true });
+app.use('/uploads', express.static(uploadRoot));
 
 // ─── Health Check ──────────────────────────────────────────
 app.get('/health', (_req, res) => {
