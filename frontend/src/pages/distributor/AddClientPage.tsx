@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, MapPinned, ShieldCheck, UploadCloud, UserPlus } from 'lucide-react';
+import { ArrowLeft, Copy, MapPinned, ShieldCheck, UploadCloud, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { distributorService, CreatedDistributorClient, DistributorClientDocuments, DistributorUccPayload } from '../../services/distributorService';
 
