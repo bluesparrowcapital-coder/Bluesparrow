@@ -6,6 +6,7 @@ import {
   hashToken,
   refreshTokenExpiry,
 } from '../utils/jwt';
+import { submitNseMfOnboarding } from './clientProfileService';
 
 const prisma = new PrismaClient();
 const ARN_PREFIX = 'ARN-';
@@ -201,6 +202,49 @@ export async function createClientForDistributor(distributorId: string, data: {
   email: string;
   phone: string;
   panNumber: string;
+  profile: {
+    fullNameAsPan: string;
+    dob: string;
+    gender: 'M' | 'F' | 'T';
+    fatherOrSpouseName: string;
+    motherName?: string;
+    placeOfBirth?: string;
+    maritalStatus?: 'SINGLE' | 'MARRIED' | 'WIDOWED' | 'DIVORCED';
+    holdingType?: 'SINGLE' | 'JOINT' | 'ANYONE_OR_SURVIVOR';
+    occupation: 'BUSINESS' | 'SERVICE' | 'PROFESSIONAL' | 'AGRICULTURIST' | 'RETIRED' | 'HOUSEWIFE' | 'STUDENT' | 'OTHER';
+    taxStatus: 'INDIVIDUAL' | 'NRI' | 'PIO' | 'HUF' | 'COMPANY' | 'PARTNERSHIP';
+    annualIncome?: 'BELOW_1L' | '1L_TO_5L' | '5L_TO_10L' | '10L_TO_25L' | '25L_TO_50L' | '50L_TO_1CR' | 'ABOVE_1CR' | 'ABOVE_25L';
+    isPep?: boolean;
+    isRelatedToPep?: boolean;
+  };
+  address: {
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    district?: string;
+    state: string;
+    pincode: string;
+    country?: string;
+  };
+  bank: {
+    accountNumber: string;
+    ifscCode: string;
+    bankName: string;
+    accountHolder: string;
+    accountType?: 'SB' | 'CA' | 'NRE' | 'NRO';
+  };
+  nominees: Array<{
+    fullName: string;
+    relationship: string;
+    percentage: number;
+    dob?: string;
+    guardianName?: string;
+    guardianRel?: string;
+    docType?: 'AADHAAR' | 'PAN' | 'PASSPORT' | 'VOTER_ID' | 'DRIVING_LICENSE';
+    docNumber?: string;
+    email?: string;
+    phone?: string;
+  }>;
 }) {
   const normalizedPhone = data.phone.trim();
   const normalizedEmail = data.email.trim().toLowerCase();
@@ -216,34 +260,132 @@ export async function createClientForDistributor(distributorId: string, data: {
   if (existingPhone) throw new Error('Phone number already registered');
   if (existingEmail) throw new Error('Email already registered');
   if (existingPan) throw new Error('PAN already registered');
+  if (!data.nominees.length) throw new Error('At least one nominee is required');
 
   const pinHash = await bcrypt.hash(tempPassword, 12);
 
-  const user = await prisma.user.create({
-    data: {
-      fullName: data.fullName.trim(),
-      email: normalizedEmail,
-      phone: normalizedPhone,
-      panNumber: normalizedPan,
-      role: UserRole.INVESTOR,
-      pinHash,
-      pinSetAt: null,
-    },
-    select: {
-      id: true,
-      fullName: true,
-      email: true,
-      phone: true,
-      panNumber: true,
-      kycStatus: true,
-      onboardingStep: true,
-      createdAt: true,
-    },
+  const user = await prisma.$transaction(async (tx) => {
+    const createdUser = await tx.user.create({
+      data: {
+        fullName: data.fullName.trim(),
+        email: normalizedEmail,
+        phone: normalizedPhone,
+        panNumber: normalizedPan,
+        dob: new Date(data.profile.dob),
+        gender: data.profile.gender,
+        role: UserRole.INVESTOR,
+        pinHash,
+        pinSetAt: null,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        panNumber: true,
+        kycStatus: true,
+        onboardingStep: true,
+        createdAt: true,
+      },
+    });
+
+    await tx.clientProfile.create({
+      data: {
+        userId: createdUser.id,
+        panNumber: normalizedPan,
+        fullNameAsPan: data.profile.fullNameAsPan.trim().toUpperCase(),
+        dob: new Date(data.profile.dob),
+        gender: data.profile.gender,
+        fatherOrSpouseName: data.profile.fatherOrSpouseName.trim(),
+        motherName: data.profile.motherName?.trim() || null,
+        placeOfBirth: data.profile.placeOfBirth?.trim() || null,
+        maritalStatus: data.profile.maritalStatus || null,
+        holdingType: data.profile.holdingType || 'SINGLE',
+        occupation: data.profile.occupation,
+        taxStatus: data.profile.taxStatus,
+        annualIncome: data.profile.annualIncome || null,
+        email: normalizedEmail,
+        mobile: normalizedPhone,
+        isPep: Boolean(data.profile.isPep),
+        isRelatedToPep: Boolean(data.profile.isRelatedToPep),
+      },
+    });
+
+    await tx.address.createMany({
+      data: [
+        {
+          userId: createdUser.id,
+          type: 'PERMANENT',
+          addressLine1: data.address.addressLine1.trim(),
+          addressLine2: data.address.addressLine2?.trim() || null,
+          city: data.address.city.trim(),
+          district: data.address.district?.trim() || null,
+          state: data.address.state.trim(),
+          pincode: data.address.pincode.trim(),
+          country: data.address.country?.trim() || 'India',
+        },
+        {
+          userId: createdUser.id,
+          type: 'CORRESPONDENCE',
+          addressLine1: data.address.addressLine1.trim(),
+          addressLine2: data.address.addressLine2?.trim() || null,
+          city: data.address.city.trim(),
+          district: data.address.district?.trim() || null,
+          state: data.address.state.trim(),
+          pincode: data.address.pincode.trim(),
+          country: data.address.country?.trim() || 'India',
+        },
+      ],
+    });
+
+    await tx.nominee.createMany({
+      data: data.nominees.map((nominee) => ({
+        userId: createdUser.id,
+        fullName: nominee.fullName.trim(),
+        relationship: nominee.relationship,
+        percentage: nominee.percentage,
+        dob: nominee.dob ? new Date(nominee.dob) : null,
+        guardianName: nominee.guardianName?.trim() || null,
+        guardianRel: nominee.guardianRel?.trim() || null,
+        docType: nominee.docType || null,
+        docNumber: nominee.docNumber?.trim() || null,
+        email: nominee.email?.trim() || null,
+        phone: nominee.phone?.trim() || null,
+      })),
+    });
+
+    await tx.bankAccount.create({
+      data: {
+        userId: createdUser.id,
+        accountNumber: data.bank.accountNumber.trim(),
+        ifscCode: data.bank.ifscCode.trim().toUpperCase(),
+        bankName: data.bank.bankName.trim(),
+        accountHolder: data.bank.accountHolder.trim(),
+        accountType: data.bank.accountType || 'SB',
+        isDefault: true,
+        isVerified: false,
+      },
+    });
+
+    await tx.user.update({
+      where: { id: createdUser.id },
+      data: { onboardingStep: 'PROFILE_CREATED' as any },
+    });
+
+    return createdUser;
   });
+
+  let nseResult: Record<string, unknown> | null = null;
+  try {
+    nseResult = await submitNseMfOnboarding(user.id) as Record<string, unknown>;
+  } catch (error: any) {
+    nseResult = { status: 'FAILED', message: error.message };
+  }
 
   return {
     user: { ...user, aum: 0, invested: 0 },
     tempPassword,
+    nseResult,
     distributorId,
   };
 }

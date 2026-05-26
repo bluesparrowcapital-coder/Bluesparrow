@@ -108,10 +108,10 @@ export async function listClients(req: AuthRequest, res: Response) {
 export async function createClient(req: AuthRequest, res: Response) {
   try {
     const distributorId = await resolveDistributorId(req.user!.userId);
-    const { fullName, email, phone, panNumber } = req.body;
+    const { fullName, email, phone, panNumber, profile, address, bank, nominees } = req.body;
 
-    if (!fullName || !email || !phone || !panNumber) {
-      return res.status(400).json({ success: false, message: 'fullName, email, phone and panNumber are required' });
+    if (!fullName || !email || !phone || !panNumber || !profile || !address || !bank || !Array.isArray(nominees) || nominees.length === 0) {
+      return res.status(400).json({ success: false, message: 'fullName, email, phone, panNumber, profile, address, bank and nominees are required' });
     }
     if (!/^[6-9]\d{9}$/.test(String(phone).trim())) {
       return res.status(400).json({ success: false, message: 'Enter valid 10-digit mobile number' });
@@ -119,8 +119,17 @@ export async function createClient(req: AuthRequest, res: Response) {
     if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(String(panNumber).trim().toUpperCase())) {
       return res.status(400).json({ success: false, message: 'Invalid PAN format' });
     }
+    if (!profile.fullNameAsPan || !profile.dob || !profile.gender || !profile.fatherOrSpouseName || !profile.occupation || !profile.taxStatus) {
+      return res.status(400).json({ success: false, message: 'Complete personal profile details are required' });
+    }
+    if (!address.addressLine1 || !address.city || !address.state || !address.pincode) {
+      return res.status(400).json({ success: false, message: 'Complete address details are required' });
+    }
+    if (!bank.accountNumber || !bank.ifscCode || !bank.bankName || !bank.accountHolder) {
+      return res.status(400).json({ success: false, message: 'Complete bank details are required' });
+    }
 
-    const result = await svc.createClientForDistributor(distributorId, { fullName, email, phone, panNumber });
+    const result = await svc.createClientForDistributor(distributorId, { fullName, email, phone, panNumber, profile, address, bank, nominees });
     await svc.createAuditLog(
       distributorId,
       'CLIENT_CREATE',

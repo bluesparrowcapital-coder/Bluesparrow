@@ -40,6 +40,62 @@ export interface DistributorClient {
 export interface CreatedDistributorClient {
   user: DistributorClient;
   tempPassword: string;
+  nseResult?: {
+    status?: string;
+    message?: string;
+    clientCode?: string | null;
+    ekycLink?: string;
+  } | null;
+}
+
+export interface DistributorUccPayload {
+  fullName: string;
+  email: string;
+  phone: string;
+  panNumber: string;
+  profile: {
+    fullNameAsPan: string;
+    dob: string;
+    gender: 'M' | 'F' | 'T';
+    fatherOrSpouseName: string;
+    motherName?: string;
+    placeOfBirth?: string;
+    maritalStatus?: 'SINGLE' | 'MARRIED' | 'WIDOWED' | 'DIVORCED';
+    holdingType?: 'SINGLE' | 'JOINT' | 'ANYONE_OR_SURVIVOR';
+    occupation: 'BUSINESS' | 'SERVICE' | 'PROFESSIONAL' | 'AGRICULTURIST' | 'RETIRED' | 'HOUSEWIFE' | 'STUDENT' | 'OTHER';
+    taxStatus: 'INDIVIDUAL' | 'NRI' | 'PIO' | 'HUF' | 'COMPANY' | 'PARTNERSHIP';
+    annualIncome?: 'BELOW_1L' | '1L_TO_5L' | '5L_TO_10L' | '10L_TO_25L' | '25L_TO_50L' | '50L_TO_1CR' | 'ABOVE_1CR' | 'ABOVE_25L';
+    isPep?: boolean;
+    isRelatedToPep?: boolean;
+  };
+  address: {
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    district?: string;
+    state: string;
+    pincode: string;
+    country?: string;
+  };
+  bank: {
+    accountNumber: string;
+    ifscCode: string;
+    bankName: string;
+    accountHolder: string;
+    accountType?: 'SB' | 'CA' | 'NRE' | 'NRO';
+  };
+  nominees: Array<{
+    fullName: string;
+    relationship: string;
+    percentage: number;
+    dob?: string;
+    guardianName?: string;
+    guardianRel?: string;
+    docType?: 'AADHAAR' | 'PAN' | 'PASSPORT' | 'VOTER_ID' | 'DRIVING_LICENSE';
+    docNumber?: string;
+    email?: string;
+    phone?: string;
+  }>;
 }
 
 export interface ClientDetail {
@@ -121,9 +177,9 @@ export const distributorService = {
     const { data } = await api.get('/distributor/clients', { params: { search, page, limit } });
     return { clients: data.clients, total: data.total };
   },
-  createClient: async (payload: { fullName: string; email: string; phone: string; panNumber: string }): Promise<CreatedDistributorClient> => {
+  createClient: async (payload: DistributorUccPayload): Promise<CreatedDistributorClient> => {
     const { data } = await api.post('/distributor/clients', payload);
-    return { user: data.user, tempPassword: data.tempPassword };
+    return { user: data.user, tempPassword: data.tempPassword, nseResult: data.nseResult };
   },
   getClientDetail: async (clientId: string): Promise<ClientDetail> => {
     const { data } = await api.get(`/distributor/clients/${clientId}`);
