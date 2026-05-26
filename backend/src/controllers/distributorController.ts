@@ -105,6 +105,37 @@ export async function listClients(req: AuthRequest, res: Response) {
   }
 }
 
+export async function createClient(req: AuthRequest, res: Response) {
+  try {
+    const distributorId = await resolveDistributorId(req.user!.userId);
+    const { fullName, email, phone, panNumber } = req.body;
+
+    if (!fullName || !email || !phone || !panNumber) {
+      return res.status(400).json({ success: false, message: 'fullName, email, phone and panNumber are required' });
+    }
+    if (!/^[6-9]\d{9}$/.test(String(phone).trim())) {
+      return res.status(400).json({ success: false, message: 'Enter valid 10-digit mobile number' });
+    }
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(String(panNumber).trim().toUpperCase())) {
+      return res.status(400).json({ success: false, message: 'Invalid PAN format' });
+    }
+
+    const result = await svc.createClientForDistributor(distributorId, { fullName, email, phone, panNumber });
+    await svc.createAuditLog(
+      distributorId,
+      'CLIENT_CREATE',
+      'client',
+      result.user.id,
+      { phone: result.user.phone, panNumber: result.user.panNumber },
+      req.ip,
+    );
+
+    return res.status(201).json({ success: true, message: 'Client created successfully', ...result });
+  } catch (err: any) {
+    return res.status(err.message.includes('already') ? 409 : 400).json({ success: false, message: err.message });
+  }
+}
+
 export async function getClientDetail(req: AuthRequest, res: Response) {
   try {
     const distributorId = await resolveDistributorId(req.user!.userId);

@@ -25,10 +25,26 @@ function arnVariants(value: string) {
   return Array.from(new Set([suffix, `${ARN_PREFIX}${suffix}`]));
 }
 
+async function getManagedClientIds(distributorId: string) {
+  const [portfolioRows, createdLogs] = await Promise.all([
+    prisma.portfolio.findMany({ where: { distributorId }, select: { userId: true } }),
+    prisma.auditLog.findMany({
+      where: { distributorId, action: 'CLIENT_CREATE', entityType: 'client' },
+      select: { entityId: true },
+    }),
+  ]);
+
+  return Array.from(new Set([
+    ...portfolioRows.map((row) => row.userId),
+    ...createdLogs.map((log) => log.entityId).filter((value): value is string => Boolean(value)),
+  ]));
+}
+
 // ─── Dashboard Stats ──────────────────────────────────────
 
 export async function getDashboardStats(distributorId: string) {
-  const [portfolios, allSips, newClientsRaw] = await Promise.all([
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const [portfolios, allSips, newClientsRaw, createdLogs] = await Promise.all([
     prisma.portfolio.findMany({
       where: { distributorId },
       select: { userId: true, currentValue: true, investedAmount: true },
@@ -40,14 +56,30 @@ export async function getDashboardStats(distributorId: string) {
     prisma.portfolio.findMany({
       where: {
         distributorId,
-        createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+        createdAt: { gte: monthStart },
       },
       select: { userId: true },
       distinct: ['userId'],
     }),
+    prisma.auditLog.findMany({
+      where: {
+        distributorId,
+        action: 'CLIENT_CREATE',
+        entityType: 'client',
+        createdAt: { gte: monthStart },
+      },
+      select: { entityId: true },
+    }),
   ]);
 
-  const uniqueClients = new Set(portfolios.map((p) => p.userId)).size;
+  const uniqueClients = new Set([
+    ...portfolios.map((p) => p.userId),
+    ...createdLogs.map((log) => log.entityId).filter((value): value is string => Boolean(value)),
+  ]).size;
+  const newClientsThisMonth = new Set([
+    ...newClientsRaw.map((row) => row.userId),
+    ...createdLogs.map((log) => log.entityId).filter((value): value is string => Boolean(value)),
+  ]).size;
   const totalAUM      = portfolios.reduce((s, p) => s + p.currentValue, 0);
   const totalInvested = portfolios.reduce((s, p) => s + p.investedAmount, 0);
   const activeSips    = allSips.filter((s) => s.status === SipStatus.ACTIVE);
@@ -55,7 +87,7 @@ export async function getDashboardStats(distributorId: string) {
 
   return {
     totalClients:        uniqueClients,
-    newClientsThisMonth: newClientsRaw.length,
+    newClientsThisMonth,
     activeSipCount:      activeSips.length,
     sipBookMonthlyValue: sipBookValue,
     totalAUM,
@@ -78,7 +110,7 @@ export async function getClients(
     select: { userId: true, currentValue: true, investedAmount: true },
   });
 
-  const userIds = [...new Set(portfolioRows.map((p) => p.userId))];
+  const userIds = await getManagedClientIds(distributorId);
 
   const users = await prisma.user.findMany({
     where: {
@@ -119,10 +151,8 @@ export async function getClients(
 }
 
 export async function getClientDetail(distributorId: string, clientUserId: string) {
-  const check = await prisma.portfolio.findFirst({
-    where: { distributorId, userId: clientUserId },
-  });
-  if (!check) throw new Error('Client not found under this distributor');
+  const managedClientIds = await getManagedClientIds(distributorId);
+  if (!managedClientIds.includes(clientUserId)) throw new Error('Client not found under this distributor');
 
   const [user, portfolios, sips, transactions, goals] = await Promise.all([
     prisma.user.findUnique({
@@ -163,6 +193,58 @@ export async function getClientDetail(distributorId: string, clientUserId: strin
       returnPct:  totalInvested > 0 ? ((totalAUM - totalInvested) / totalInvested) * 100 : 0,
       activeSips: sips.filter((s) => s.status === SipStatus.ACTIVE).length,
     },
+  };
+}
+
+export async function createClientForDistributor(distributorId: string, data: {
+  fullName: string;
+  email: string;
+  phone: string;
+  panNumber: string;
+}) {
+  const normalizedPhone = data.phone.trim();
+  const normalizedEmail = data.email.trim().toLowerCase();
+  const normalizedPan = data.panNumber.trim().toUpperCase();
+  const tempPassword = `${normalizedPhone}${normalizedPan}`;
+
+  const [existingPhone, existingEmail, existingPan] = await Promise.all([
+    prisma.user.findUnique({ where: { phone: normalizedPhone }, select: { id: true } }),
+    prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } }),
+    prisma.user.findUnique({ where: { panNumber: normalizedPan }, select: { id: true } }),
+  ]);
+
+  if (existingPhone) throw new Error('Phone number already registered');
+  if (existingEmail) throw new Error('Email already registered');
+  if (existingPan) throw new Error('PAN already registered');
+
+  const pinHash = await bcrypt.hash(tempPassword, 12);
+
+  const user = await prisma.user.create({
+    data: {
+      fullName: data.fullName.trim(),
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      panNumber: normalizedPan,
+      role: UserRole.INVESTOR,
+      pinHash,
+      pinSetAt: null,
+    },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      phone: true,
+      panNumber: true,
+      kycStatus: true,
+      onboardingStep: true,
+      createdAt: true,
+    },
+  });
+
+  return {
+    user: { ...user, aum: 0, invested: 0 },
+    tempPassword,
+    distributorId,
   };
 }
 

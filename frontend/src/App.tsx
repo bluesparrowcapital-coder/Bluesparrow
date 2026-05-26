@@ -31,6 +31,7 @@ import NotificationsPage  from './pages/NotificationsPage'
 // Phase 4 — Distributor Panel
 import DistributorDashboard         from './pages/distributor/DistributorDashboard'
 import ClientListPage               from './pages/distributor/ClientListPage'
+import AddClientPage                from './pages/distributor/AddClientPage'
 import ClientDetailPage             from './pages/distributor/ClientDetailPage'
 import ModelPortfolioPage           from './pages/distributor/ModelPortfolioPage'
 import BusinessReportsPage          from './pages/distributor/BusinessReportsPage'
@@ -154,6 +155,7 @@ export default function App() {
       {/* Phase 4 — Distributor Panel */}
       <Route path="/distributor/dashboard"          element={<ProtectedLayout><DistributorDashboard /></ProtectedLayout>} />
       <Route path="/distributor/clients"            element={<ProtectedLayout><ClientListPage /></ProtectedLayout>} />
+      <Route path="/distributor/clients/new"        element={<ProtectedLayout><AddClientPage /></ProtectedLayout>} />
       <Route path="/distributor/clients/:clientId"  element={<ProtectedLayout><ClientDetailPage /></ProtectedLayout>} />
       <Route path="/distributor/model-portfolios"   element={<ProtectedLayout><ModelPortfolioPage /></ProtectedLayout>} />
       <Route path="/distributor/reports"            element={<ProtectedLayout><BusinessReportsPage /></ProtectedLayout>} />

@@ -20,6 +20,7 @@ router.get('/dashboard',   ctrl.getDashboard);
 
 // ─── Clients ──────────────────────────────────────────────
 router.get('/clients',              ctrl.listClients);
+router.post('/clients',             ctrl.createClient);
 router.get('/clients/:clientId',    ctrl.getClientDetail);
 
 // ─── Reports ──────────────────────────────────────────────

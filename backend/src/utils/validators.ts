@@ -28,7 +28,7 @@ export const setPinSchema = z.object({
 
 export const verifyPinSchema = z.object({
   phone: z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit Indian mobile number'),
-  pin:   z.string().length(4).regex(/^\d{4}$/),
+  pin:   z.string().min(4, 'Enter PIN or temporary password').max(30, 'Credential too long').regex(/^\S+$/, 'Credential cannot contain spaces'),
 });
 
 // ─── Refresh Token ────────────────────────────────────────

@@ -37,6 +37,11 @@ export interface DistributorClient {
   invested:       number;
 }
 
+export interface CreatedDistributorClient {
+  user: DistributorClient;
+  tempPassword: string;
+}
+
 export interface ClientDetail {
   user:       DistributorClient & { clientProfile: any; bankAccounts: any[] };
   portfolios: Array<{
@@ -115,6 +120,10 @@ export const distributorService = {
   listClients: async (search?: string, page = 1, limit = 20): Promise<{ clients: DistributorClient[]; total: number }> => {
     const { data } = await api.get('/distributor/clients', { params: { search, page, limit } });
     return { clients: data.clients, total: data.total };
+  },
+  createClient: async (payload: { fullName: string; email: string; phone: string; panNumber: string }): Promise<CreatedDistributorClient> => {
+    const { data } = await api.post('/distributor/clients', payload);
+    return { user: data.user, tempPassword: data.tempPassword };
   },
   getClientDetail: async (clientId: string): Promise<ClientDetail> => {
     const { data } = await api.get(`/distributor/clients/${clientId}`);

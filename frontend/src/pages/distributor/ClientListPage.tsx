@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronRight, Users, TrendingUp } from 'lucide-react';
+import { Search, ChevronRight, Users, TrendingUp, UserPlus } from 'lucide-react';
 import { distributorService, DistributorClient } from '../../services/distributorService';
 import toast from 'react-hot-toast';
 
@@ -53,8 +53,17 @@ export default function ClientListPage() {
           <h1 className="text-xl font-bold text-gray-900">Client Management</h1>
           <p className="text-sm text-gray-500">{total} total clients</p>
         </div>
-        <div className="flex items-center gap-2 text-sparrow-blue">
-          <Users className="w-5 h-5" />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/distributor/clients/new')}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-sparrow-blue text-white text-sm font-medium shadow-sm hover:opacity-90 transition"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Client
+          </button>
+          <div className="flex items-center gap-2 text-sparrow-blue">
+            <Users className="w-5 h-5" />
+          </div>
         </div>
       </div>
 
@@ -80,6 +89,13 @@ export default function ClientListPage() {
           <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No clients found</p>
           <p className="text-sm mt-1">Clients who invest through you will appear here</p>
+          <button
+            onClick={() => navigate('/distributor/clients/new')}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sparrow-blue text-white text-sm font-medium hover:opacity-90 transition"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Client
+          </button>
         </div>
       ) : (
         <div className="space-y-3">

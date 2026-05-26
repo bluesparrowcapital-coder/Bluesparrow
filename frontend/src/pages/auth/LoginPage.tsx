@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import toast from 'react-hot-toast'
-import { Loader2, Fingerprint } from 'lucide-react'
-import { PinInput } from '../../components/ui/PinInput'
+import { Loader2, Fingerprint, Lock } from 'lucide-react'
 import { authService } from '../../services/authService'
 import { useBiometric } from '../../hooks/useBiometric'
 import { setTokens, setUser } from '../../store/slices/authSlice'
@@ -115,8 +114,18 @@ export default function LoginPage() {
 
           {step === 'pin' && (
             <div className="space-y-4">
-              <p className="text-sm text-slate-500 text-center">Enter your 4-digit PIN</p>
-              <PinInput value={pin} onChange={setPin} disabled={locked} />
+              <p className="text-sm text-slate-500 text-center">Enter your PIN or temporary password</p>
+              <div className="relative">
+                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="password"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.toUpperCase().replace(/\s/g, ''))}
+                  disabled={locked}
+                  placeholder="4-digit PIN or mobile+PAN"
+                  className="input-field pl-10"
+                />
+              </div>
               {locked && (
                 <p className="text-red-500 text-xs text-center">
                   Too many wrong attempts. Account locked for 30 minutes.
