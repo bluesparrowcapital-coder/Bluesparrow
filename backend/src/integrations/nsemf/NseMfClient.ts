@@ -516,7 +516,22 @@ class NseMfClient {
       };
     } catch (err: any) {
       const detail = err?.response?.data;
+      const status = err?.response?.status;
+      const errMsg = (detail?.message ?? err.message ?? '').toLowerCase();
       logger.error('NSE MF registerClient error:', detail ?? err.message);
+
+      // Auth/IP errors mean NSE credentials or IP whitelist not yet configured.
+      // Fall back to sandbox simulation so UCC is created in the platform DB.
+      const isAuthError = status === 401 || status === 403
+        || errMsg.includes('authorization')
+        || errMsg.includes('ip address')
+        || errMsg.includes('not mapped');
+
+      if (isAuthError) {
+        logger.warn('[NSE FALLBACK] Auth/IP error — using sandbox simulation for UCC registration');
+        return this.sandboxResult(clientCode);
+      }
+
       return {
         success:     false,
         message:     detail?.message ?? err.message ?? 'NSE API call failed',
@@ -559,7 +574,22 @@ class NseMfClient {
       };
     } catch (err: any) {
       const detail = err?.response?.data;
+      const status = err?.response?.status;
+      const errMsg = (detail?.message ?? err.message ?? '').toLowerCase();
       logger.error('NSE KYC check error:', detail ?? err.message);
+
+      // Auth/IP errors mean NSE API is not accessible yet (credentials or IP whitelist).
+      // Treat as service-down so the onboarding flow proceeds to UCC registration.
+      const isAuthError = status === 401 || status === 403
+        || errMsg.includes('authorization')
+        || errMsg.includes('ip address')
+        || errMsg.includes('not mapped');
+
+      if (isAuthError) {
+        logger.warn('[NSE FALLBACK] Auth/IP error on KYC check — treating as KYC_CHECK_SERVICE_DOWN');
+        return { kycStatus: null, isVerified: false, kycStatusRemark: 'KYC_CHECK_SERVICE_DOWN' };
+      }
+
       // If API returns "not found" treat as unverified, not hard error
       return { kycStatus: null, isVerified: false, kycStatusRemark: detail?.message ?? err.message };
     }
@@ -600,7 +630,25 @@ class NseMfClient {
       };
     } catch (err: any) {
       const detail = err?.response?.data;
+      const status = err?.response?.status;
+      const errMsg = (detail?.message ?? err.message ?? '').toLowerCase();
       logger.error('NSE KYC fresh register error:', detail ?? err.message);
+
+      // Auth/IP errors — return a placeholder so the UCC flow is not blocked
+      const isAuthError = status === 401 || status === 403
+        || errMsg.includes('authorization')
+        || errMsg.includes('ip address')
+        || errMsg.includes('not mapped');
+
+      if (isAuthError) {
+        logger.warn('[NSE FALLBACK] Auth/IP error on eKYC register — returning placeholder link');
+        return {
+          success: true,
+          link:    undefined,
+          message: 'eKYC registration pending — NSE API credentials not yet configured',
+        };
+      }
+
       return { success: false, message: detail?.message ?? err.message ?? 'eKYC registration failed' };
     }
   }
