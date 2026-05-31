@@ -15,7 +15,6 @@ const TAX_STATUS = ['INDIVIDUAL', 'NRI', 'PIO', 'HUF', 'COMPANY', 'PARTNERSHIP']
 const INCOMES = ['BELOW_1L', '1L_TO_5L', '5L_TO_10L', '10L_TO_25L', '25L_TO_50L', '50L_TO_1CR', 'ABOVE_1CR'] as const;
 const DECLARATIONS = ['SELF', 'FAMILY', 'OTHER'] as const;
 const SOURCES_OF_WEALTH = ['SALARY', 'BUSINESS_INCOME', 'PROFESSIONAL_INCOME', 'AGRICULTURE', 'INHERITANCE', 'SAVINGS', 'OTHER'] as const;
-const VERIFICATION_SOURCES = ['MANUAL', 'CALL', 'BRANCH_VISIT', 'DIGILOCKER', 'NSEMF'] as const;
 const ACCOUNT_TYPES = ['SB', 'CA', 'NRE', 'NRO'] as const;
 const DOCUMENT_FIELDS: Array<{ key: keyof DistributorClientDocuments; label: string; accept?: string; hint: string }> = [
   { key: 'panDocument', label: 'PAN Card', accept: '.pdf,image/*', hint: 'Upload PAN copy' },
@@ -88,7 +87,7 @@ const INIT: DistributorUccPayload = {
   verification: {
     source: 'MANUAL',
     sourceDetails: '',
-    termsAccepted: false,
+    termsAccepted: true,
   },
 };
 
@@ -111,6 +110,35 @@ function emptyBank() {
   };
 }
 
+function emptyNominee() {
+  return {
+    fullName: '',
+    relationship: 'SPOUSE' as const,
+    percentage: 0,
+    dob: '',
+    guardianName: '',
+    guardianRel: '',
+    docType: 'PAN' as const,
+    docNumber: '',
+    email: '',
+    phone: '',
+  };
+}
+
+function formatDobInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function dobToIso(display: string): string {
+  if (!display) return '';
+  const parts = display.split('/');
+  if (parts.length !== 3 || parts[2].length !== 4) return '';
+  return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+}
+
 export default function AddClientPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState<DistributorUccPayload>(INIT);
@@ -128,13 +156,6 @@ export default function AddClientPage() {
 
   function setAddress<K extends keyof DistributorUccPayload['address']>(key: K, value: DistributorUccPayload['address'][K]) {
     setForm((current) => ({ ...current, address: { ...current.address, [key]: value } }));
-  }
-
-  function setVerification<K extends keyof NonNullable<DistributorUccPayload['verification']>>(key: K, value: NonNullable<DistributorUccPayload['verification']>[K]) {
-    setForm((current) => ({
-      ...current,
-      verification: { ...(current.verification ?? {}), [key]: value },
-    }));
   }
 
   function setBank(index: number, key: keyof DistributorUccPayload['banks'][number], value: string | boolean) {
@@ -162,8 +183,25 @@ export default function AddClientPage() {
     });
   }
 
-  function setNomineeField(field: keyof DistributorUccPayload['nominees'][number], value: string | number) {
-    setForm((current) => ({ ...current, nominees: [{ ...current.nominees[0], [field]: value }] }));
+  function setNomineeField(index: number, field: keyof DistributorUccPayload['nominees'][number], value: string | number) {
+    setForm((current) => ({
+      ...current,
+      nominees: current.nominees.map((n, i) => i === index ? { ...n, [field]: value } : n),
+    }));
+  }
+
+  function addNominee() {
+    setForm((current) => {
+      if (current.nominees.length >= 3) return current;
+      return { ...current, nominees: [...current.nominees, emptyNominee()] };
+    });
+  }
+
+  function removeNominee(index: number) {
+    setForm((current) => {
+      const next = current.nominees.filter((_, i) => i !== index);
+      return { ...current, nominees: next.length ? next : [emptyNominee()] };
+    });
   }
 
   function setDocument(field: keyof DistributorClientDocuments, file: File | null) {
@@ -179,6 +217,7 @@ export default function AddClientPage() {
         panNumber: form.panNumber.toUpperCase(),
         profile: {
           ...form.profile,
+          dob: dobToIso(form.profile.dob),
           fullNameAsPan: form.profile.fullNameAsPan.toUpperCase(),
           placeOfBirth: form.profile.cityOfBirth,
           isPep: form.profile.pepCategory === 'PEP',
@@ -188,6 +227,11 @@ export default function AddClientPage() {
           ...bank,
           ifscCode: bank.ifscCode.toUpperCase(),
           isDefault: bank.isDefault ?? index === 0,
+        })),
+        nominees: form.nominees.map((n, i) => ({
+          ...n,
+          dob: dobToIso(n.dob || ''),
+          percentage: form.nominees.length === 1 ? 100 : n.percentage,
         })),
       };
       const result = await distributorService.createClient(payload, documents);
@@ -303,7 +347,7 @@ export default function AddClientPage() {
               <input className="input w-full" placeholder="Enter Full Name" value={form.fullName} onChange={(e) => setRoot('fullName', e.target.value)} required />
             </Field>
             <Field label="Date of Birth" required>
-              <input className="input w-full" type="date" value={form.profile.dob} onChange={(e) => setProfile('dob', e.target.value)} required />
+              <input className="input w-full" type="text" placeholder="DD/MM/YYYY" maxLength={10} value={form.profile.dob} onChange={(e) => setProfile('dob', formatDobInput(e.target.value))} required />
             </Field>
             <Field label="Mobile Number" required>
               <input className="input w-full" placeholder="Enter Mobile Number" value={form.phone} onChange={(e) => setRoot('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} maxLength={10} required />
@@ -479,27 +523,49 @@ export default function AddClientPage() {
         {/* ── Nominee ── */}
         <div className="px-8 pt-8 pb-6 border-b border-gray-100">
           <SectionHeader icon="👨‍👩‍👧" title="Nominee" />
-          <div className="mt-6 grid gap-x-6 gap-y-5 grid-cols-3">
-            <Field label="Nominee Name" required>
-              <input className="input w-full" placeholder="Enter Nominee Name" value={form.nominees[0].fullName} onChange={(e) => setNomineeField('fullName', e.target.value)} required />
-            </Field>
-            <Field label="Relationship" required>
-              <select className="input w-full" value={form.nominees[0].relationship} onChange={(e) => setNomineeField('relationship', e.target.value)}>
-                {RELATIONSHIPS.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </Field>
-            <Field label="Nominee Date of Birth">
-              <input className="input w-full" type="date" value={form.nominees[0].dob || ''} onChange={(e) => setNomineeField('dob', e.target.value)} />
-            </Field>
-            <Field label="Document Number">
-              <input className="input w-full uppercase" placeholder="Enter Document Number" value={form.nominees[0].docNumber || ''} onChange={(e) => setNomineeField('docNumber', e.target.value.toUpperCase())} />
-            </Field>
-            <Field label="Guardian Name">
-              <input className="input w-full" placeholder="Enter Guardian Name" value={form.nominees[0].guardianName || ''} onChange={(e) => setNomineeField('guardianName', e.target.value)} />
-            </Field>
-            <Field label="Guardian Relation">
-              <input className="input w-full" placeholder="Enter Guardian Relation" value={form.nominees[0].guardianRel || ''} onChange={(e) => setNomineeField('guardianRel', e.target.value)} />
-            </Field>
+          <div className="mt-6 space-y-6">
+            {form.nominees.map((nominee, index) => (
+              <div key={index} className="rounded-xl border border-gray-200 p-5 space-y-5 bg-gray-50/50">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-700">Nominee {index + 1}</p>
+                  {form.nominees.length > 1 && (
+                    <button type="button" onClick={() => removeNominee(index)} className="text-xs text-red-500 hover:underline">Remove</button>
+                  )}
+                </div>
+                <div className="grid gap-x-6 gap-y-5 grid-cols-3">
+                  <Field label="Nominee Name" required={index === 0}>
+                    <input className="input w-full" placeholder="Enter Nominee Name" value={nominee.fullName} onChange={(e) => setNomineeField(index, 'fullName', e.target.value)} required={index === 0} />
+                  </Field>
+                  <Field label="Relationship" required={index === 0}>
+                    <select className="input w-full" value={nominee.relationship} onChange={(e) => setNomineeField(index, 'relationship', e.target.value)}>
+                      {RELATIONSHIPS.map((v) => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  </Field>
+                  {form.nominees.length > 1 && (
+                    <Field label="Share (%)" required>
+                      <input className="input w-full" type="number" min={1} max={99} placeholder="Allocation %" value={nominee.percentage || ''} onChange={(e) => setNomineeField(index, 'percentage', Number(e.target.value))} required />
+                    </Field>
+                  )}
+                  <Field label="Nominee Date of Birth">
+                    <input className="input w-full" type="text" placeholder="DD/MM/YYYY" maxLength={10} value={nominee.dob || ''} onChange={(e) => setNomineeField(index, 'dob', formatDobInput(e.target.value))} />
+                  </Field>
+                  <Field label="Document Number">
+                    <input className="input w-full uppercase" placeholder="ENTER DOCUMENT NUMBER" value={nominee.docNumber || ''} onChange={(e) => setNomineeField(index, 'docNumber', e.target.value.toUpperCase())} />
+                  </Field>
+                  <Field label="Guardian Name">
+                    <input className="input w-full" placeholder="Enter Guardian Name" value={nominee.guardianName || ''} onChange={(e) => setNomineeField(index, 'guardianName', e.target.value)} />
+                  </Field>
+                  <Field label="Guardian Relation">
+                    <input className="input w-full" placeholder="Enter Guardian Relation" value={nominee.guardianRel || ''} onChange={(e) => setNomineeField(index, 'guardianRel', e.target.value)} />
+                  </Field>
+                </div>
+              </div>
+            ))}
+            {form.nominees.length < 3 && (
+              <button type="button" onClick={addNominee} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-orange-300 text-orange-600 hover:bg-orange-50 text-sm font-medium transition">
+                + Add Nominee
+              </button>
+            )}
           </div>
         </div>
 
@@ -519,25 +585,6 @@ export default function AddClientPage() {
             ))}
           </div>
           <p className="mt-4 text-xs text-gray-500">Files are uploaded with the client creation request and stored against the investor KYC record. Max 5 MB per file.</p>
-        </div>
-
-        {/* ── Verification ── */}
-        <div className="px-8 pt-8 pb-6">
-          <SectionHeader icon="✅" title="Verification" />
-          <div className="mt-6 grid gap-x-6 gap-y-5 grid-cols-3">
-            <Field label="Verification Source">
-              <select className="input w-full" value={form.verification?.source} onChange={(e) => setVerification('source', e.target.value)}>
-                {VERIFICATION_SOURCES.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </Field>
-            <Field label="Source Details">
-              <input className="input w-full" placeholder="Enter Source Details" value={form.verification?.sourceDetails || ''} onChange={(e) => setVerification('sourceDetails', e.target.value)} />
-            </Field>
-          </div>
-          <div className="mt-5 flex items-center gap-2">
-            <input type="checkbox" id="terms" className="accent-orange-500 w-4 h-4" checked={Boolean(form.verification?.termsAccepted)} onChange={(e) => setVerification('termsAccepted', e.target.checked)} />
-            <label htmlFor="terms" className="text-sm text-gray-700 cursor-pointer">I have read and agree to the Terms &amp; Conditions</label>
-          </div>
         </div>
 
         {/* ── Submit bar ── */}
