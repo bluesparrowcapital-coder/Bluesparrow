@@ -218,7 +218,7 @@ export default function AddClientPage() {
         profile: {
           ...form.profile,
           dob: dobToIso(form.profile.dob),
-          fullNameAsPan: form.profile.fullNameAsPan.toUpperCase(),
+          fullNameAsPan: form.fullName.toUpperCase(),
           placeOfBirth: form.profile.cityOfBirth,
           isPep: form.profile.pepCategory === 'PEP',
           isRelatedToPep: form.profile.pepCategory === 'RELATED_PEP',
@@ -399,9 +399,6 @@ export default function AddClientPage() {
               <Field label="City of Birth" required>
                 <input className="input w-full" placeholder="Enter City of Birth" value={form.profile.cityOfBirth || ''} onChange={(e) => setProfile('cityOfBirth', e.target.value)} />
               </Field>
-              <Field label="Full Name as PAN" required>
-                <input className="input w-full uppercase" placeholder="Name exactly as on PAN" value={form.profile.fullNameAsPan} onChange={(e) => setProfile('fullNameAsPan', e.target.value.toUpperCase())} required />
-              </Field>
               <Field label="Father / Spouse Name" required>
                 <input className="input w-full" placeholder="Enter Father / Spouse Name" value={form.profile.fatherOrSpouseName} onChange={(e) => setProfile('fatherOrSpouseName', e.target.value)} required />
               </Field>
@@ -548,6 +545,12 @@ export default function AddClientPage() {
                   )}
                   <Field label="Nominee Date of Birth">
                     <input className="input w-full" type="text" placeholder="DD/MM/YYYY" maxLength={10} value={nominee.dob || ''} onChange={(e) => setNomineeField(index, 'dob', formatDobInput(e.target.value))} />
+                  </Field>
+                  <Field label="Document Type">
+                    <select className="input w-full" value={nominee.docType || 'PAN'} onChange={(e) => setNomineeField(index, 'docType', e.target.value)}>
+                      <option value="PAN">PAN Card</option>
+                      <option value="AADHAAR">Aadhaar Card</option>
+                    </select>
                   </Field>
                   <Field label="Document Number">
                     <input className="input w-full uppercase" placeholder="ENTER DOCUMENT NUMBER" value={nominee.docNumber || ''} onChange={(e) => setNomineeField(index, 'docNumber', e.target.value.toUpperCase())} />
