@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import * as svc from '../services/distributorService';
+import { nseMfClient } from '../integrations/nsemf/NseMfClient';
 
 // ─── Helper ───────────────────────────────────────────────
 
@@ -315,6 +316,22 @@ export async function getAuditLogs(req: AuthRequest, res: Response) {
     const { page, limit } = req.query;
     const result = await svc.getAuditLogs(distributorId, Number(page) || 1, Number(limit) || 50);
     return res.json({ success: true, ...result });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+// ─── KYC Check for a given PAN (distributor use — no user account required) ──
+
+export async function checkPanKycStatus(req: AuthRequest, res: Response) {
+  try {
+    const { pan_no } = req.body;
+    const pan = (pan_no ?? '').toString().trim().toUpperCase();
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      return res.status(400).json({ success: false, message: 'Invalid PAN format' });
+    }
+    const result = await nseMfClient.checkKycStatus(pan);
+    return res.json({ success: true, data: result });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
   }

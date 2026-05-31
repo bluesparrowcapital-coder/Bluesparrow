@@ -39,4 +39,7 @@ router.post('/model-portfolios/:id/assign', ctrl.assignModelPortfolio);
 // ─── Audit Logs ───────────────────────────────────────────
 router.get('/audit-logs',   ctrl.getAuditLogs);
 
+// ─── KYC Utilities ────────────────────────────────────────
+router.post('/kyc/check-pan', ctrl.checkPanKycStatus);
+
 export default router;

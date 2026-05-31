@@ -258,4 +258,16 @@ export const distributorService = {
     const { data } = await api.get('/distributor/audit-logs', { params: { page, limit } });
     return { logs: data.logs, total: data.total };
   },
+
+  // KYC Utilities
+  checkPanKyc: async (pan: string): Promise<{
+    pan?: string; name?: string;
+    kycStatus: 'S' | 'F' | null;
+    kycStatusRemark?: string;
+    kraName?: string;
+    isVerified: boolean;
+  }> => {
+    const { data } = await api.post('/distributor/kyc/check-pan', { pan_no: pan });
+    return data.data;
+  },
 };

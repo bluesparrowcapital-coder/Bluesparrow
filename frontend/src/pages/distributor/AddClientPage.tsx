@@ -146,6 +146,16 @@ export default function AddClientPage() {
   const [loading, setLoading] = useState(false);
   const [created, setCreated] = useState<CreatedDistributorClient | null>(null);
 
+  // KYC status for the entered PAN
+  const [kycChecking, setKycChecking] = useState(false);
+  const [kycResult, setKycResult] = useState<{
+    kycStatus: 'S' | 'F' | null;
+    kycStatusRemark?: string;
+    kraName?: string;
+    name?: string;
+    isVerified: boolean;
+  } | null>(null);
+
   function setRoot<K extends keyof DistributorUccPayload>(key: K, value: DistributorUccPayload[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -206,6 +216,24 @@ export default function AddClientPage() {
 
   function setDocument(field: keyof DistributorClientDocuments, file: File | null) {
     setDocuments((current) => ({ ...current, [field]: file }));
+  }
+
+  async function handlePanBlur() {
+    const pan = form.panNumber.toUpperCase().trim();
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      setKycResult(null);
+      return;
+    }
+    setKycChecking(true);
+    setKycResult(null);
+    try {
+      const result = await distributorService.checkPanKyc(pan);
+      setKycResult(result);
+    } catch {
+      setKycResult(null);
+    } finally {
+      setKycChecking(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -341,7 +369,32 @@ export default function AddClientPage() {
               </select>
             </Field>
             <Field label="PAN" required>
-              <input className="input w-full" placeholder="Enter PAN Number" value={form.panNumber} onChange={(e) => setRoot('panNumber', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} maxLength={10} required />
+              <input
+                className="input w-full"
+                placeholder="Enter PAN Number"
+                value={form.panNumber}
+                onChange={(e) => {
+                  setRoot('panNumber', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10));
+                  setKycResult(null);
+                }}
+                onBlur={handlePanBlur}
+                maxLength={10}
+                required
+              />
+              {kycChecking && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-400">
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-orange-500" />
+                  Checking KYC status…
+                </p>
+              )}
+              {!kycChecking && kycResult && (
+                <div className={`mt-1.5 flex w-fit items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium ${kycResult.isVerified ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                  <span>{kycResult.isVerified ? '✓' : '✗'}</span>
+                  <span>{kycResult.isVerified ? 'KYC Verified' : 'KYC Not Verified'}</span>
+                  {kycResult.kycStatusRemark && <span>— {kycResult.kycStatusRemark}</span>}
+                  {kycResult.kraName && <span>({kycResult.kraName.toUpperCase()})</span>}
+                </div>
+              )}
             </Field>
             <Field label="Full Name" required>
               <input className="input w-full" placeholder="Enter Full Name" value={form.fullName} onChange={(e) => setRoot('fullName', e.target.value)} required />
