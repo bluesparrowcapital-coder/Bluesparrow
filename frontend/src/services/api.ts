@@ -19,7 +19,13 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config;
 
-    if (error.response?.status === 401 && !original._retry) {
+    // Only attempt token refresh for authenticated requests (those that had an
+    // Authorization header). Public endpoints like /distributor/login return 401
+    // for "not found" — we must NOT retry those or the user gets a duplicate
+    // request and a confusing redirect.
+    const hadAuthHeader = !!original.headers?.Authorization;
+
+    if (error.response?.status === 401 && !original._retry && hadAuthHeader) {
       original._retry = true;
       const refreshToken = localStorage.getItem('refreshToken');
 
@@ -34,8 +40,12 @@ api.interceptors.response.use(
           // Refresh failed — clear tokens and redirect to login
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
-          window.location.href = '/login';
+          window.location.href = '/auth/login';
         }
+      } else {
+        // No refresh token available — clear any stale access token
+        localStorage.removeItem('accessToken');
+        window.location.href = '/auth/login';
       }
     }
 

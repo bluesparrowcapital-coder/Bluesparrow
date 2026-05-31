@@ -721,7 +721,11 @@ export async function registerDistributor(data: {
 // ─── Distributor Login (ARN + PIN) ────────────────────────
 
 export async function loginDistributorByArn(arnNumber: string, pin: string, deviceInfo?: string) {
-  const distributor = await prisma.distributor.findFirst({
+  // Try ARN lookup first; fall back to phone number lookup so distributors
+  // can always sign in even if they forget which ARN they registered with.
+  const isPhoneInput = /^\d{10}$/.test(arnNumber.replace(/\D/g, ''));
+
+  let distributor = await prisma.distributor.findFirst({
     where: { arnNumber: { in: arnVariants(arnNumber) } },
     include: {
       user: {
@@ -734,8 +738,35 @@ export async function loginDistributorByArn(arnNumber: string, pin: string, devi
     },
   });
 
+  // If ARN lookup failed, try matching against the user's phone number
+  if (!distributor) {
+    const phoneDigits = arnNumber.replace(/\D/g, '');
+    if (phoneDigits.length >= 10) {
+      const phone = phoneDigits.slice(-10);
+      const userByPhone = await prisma.user.findFirst({
+        where: { phone, role: 'DISTRIBUTOR' },
+        include: {
+          distributor: {
+            include: {
+              user: {
+                select: {
+                  id: true, fullName: true, email: true, phone: true, role: true,
+                  kycStatus: true, pinHash: true, pinAttempts: true, isActive: true,
+                  pinLockedUntil: true,
+                },
+              },
+            },
+          },
+        },
+      });
+      if (userByPhone?.distributor) {
+        distributor = userByPhone.distributor;
+      }
+    }
+  }
+
   if (!distributor || !distributor.user.isActive) {
-    throw new Error('ARN number not found');
+    throw new Error('ARN number or phone not found');
   }
 
   const user = distributor.user;

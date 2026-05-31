@@ -44,7 +44,12 @@ export async function loginDistributor(req: Request, res: Response) {
     const result = await svc.loginDistributorByArn(arnNumber.trim().toUpperCase(), pin, deviceInfo);
     return res.json({ success: true, message: 'Login successful', data: result });
   } catch (err: any) {
-    const status = err.message.includes('locked') ? 423 : err.message.includes('not found') ? 401 : 500;
+    // Use 400 for credential errors (not found / wrong PIN) so the frontend
+    // auth interceptor does NOT mistake this for an expired-token 401 and
+    // attempt a silent token refresh + retry.
+    const status = err.message.includes('locked') ? 423
+      : (err.message.includes('not found') || err.message.includes('Wrong PIN') || err.message.includes('PIN not set')) ? 400
+      : 500;
     return res.status(status).json({ success: false, message: err.message });
   }
 }

@@ -147,9 +147,9 @@ export default function DistributorRegisterPage() {
                 </div>
               </Field>
 
-              <Field icon={Briefcase} label="Firm / Business Name">
+              <Field icon={Briefcase} label="Firm / Business Name (Optional)">
                 <input className={inputCls} placeholder="Your registered firm name"
-                  value={form.firmName} onChange={(e) => update('firmName', e.target.value)} required />
+                  value={form.firmName} onChange={(e) => update('firmName', e.target.value)} />
               </Field>
 
               <Field icon={CreditCard} label="EUIN Number">

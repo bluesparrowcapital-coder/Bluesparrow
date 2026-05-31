@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { Loader2, Fingerprint, Lock } from 'lucide-react'
 import { authService } from '../../services/authService'
 import { useBiometric } from '../../hooks/useBiometric'
-import { setTokens, setUser } from '../../store/slices/authSlice'
+import { setTokens, setUser, logout } from '../../store/slices/authSlice'
 
 export default function LoginPage() {
   const navigate  = useNavigate()
@@ -29,6 +29,11 @@ export default function LoginPage() {
     try {
       const res = await authService.loginWithPin({ phone, pin })
       const d = res.data // { user, accessToken, refreshToken }
+      if (d.user.role === 'DISTRIBUTOR') {
+        toast.error('This login is for investors. Please use Distributor Login.')
+        navigate('/distributor/login')
+        return
+      }
       dispatch(setTokens({ accessToken: d.accessToken, refreshToken: d.refreshToken }))
       dispatch(setUser({
         userId:   d.user.id,
@@ -38,7 +43,7 @@ export default function LoginPage() {
         role:     d.user.role,
       }))
       toast.success('Welcome back!')
-      navigate(d.user.role === 'DISTRIBUTOR' ? '/distributor/dashboard' : '/onboarding/status')
+      navigate('/onboarding/status')
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number; data?: { message?: string; lockedUntil?: string } } })?.response?.status
       const data   = (err as { response?: { data?: { message?: string; lockedUntil?: string } } })?.response?.data
@@ -61,10 +66,16 @@ export default function LoginPage() {
     const tokens = await loginWithBiometric(phone)
     if (tokens) {
       const d = tokens as { user?: { id?: string; phone?: string; email?: string; fullName?: string; role?: string }; accessToken: string; refreshToken: string }
+      if (d.user?.role === 'DISTRIBUTOR') {
+        dispatch(logout())
+        toast.error('This login is for investors. Please use Distributor Login.')
+        navigate('/distributor/login')
+        return
+      }
       dispatch(setTokens({ accessToken: d.accessToken, refreshToken: d.refreshToken }))
       if (d.user) dispatch(setUser({ userId: d.user.id ?? '', phone: d.user.phone ?? phone, email: d.user.email, fullName: d.user.fullName, role: d.user.role }))
       toast.success('Welcome back!')
-      navigate(d.user?.role === 'DISTRIBUTOR' ? '/distributor/dashboard' : '/onboarding/status')
+      navigate('/onboarding/status')
     }
   }
 
