@@ -261,6 +261,7 @@ export const distributorService = {
 
   // KYC Utilities
   checkPanKyc: async (pan: string): Promise<{
+    serviceDown: boolean;
     pan?: string; name?: string;
     kycStatus: 'S' | 'F' | null;
     kycStatusRemark?: string;
@@ -268,6 +269,6 @@ export const distributorService = {
     isVerified: boolean;
   }> => {
     const { data } = await api.post('/distributor/kyc/check-pan', { pan_no: pan });
-    return data.data;
+    return { serviceDown: data.serviceDown ?? false, ...data.data };
   },
 };

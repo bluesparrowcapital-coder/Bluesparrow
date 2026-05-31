@@ -331,7 +331,18 @@ export async function checkPanKycStatus(req: AuthRequest, res: Response) {
       return res.status(400).json({ success: false, message: 'Invalid PAN format' });
     }
     const result = await nseMfClient.checkKycStatus(pan);
-    return res.json({ success: true, data: result });
+
+    // When NSE API is unreachable (auth/IP error) the client returns KYC_CHECK_SERVICE_DOWN.
+    // Expose this as a distinct field so the UI can show a warning instead of a red failure.
+    if (result.kycStatusRemark === 'KYC_CHECK_SERVICE_DOWN') {
+      return res.json({
+        success: true,
+        serviceDown: true,
+        data: result,
+      });
+    }
+
+    return res.json({ success: true, serviceDown: false, data: result });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
   }

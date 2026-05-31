@@ -149,6 +149,7 @@ export default function AddClientPage() {
   // KYC status for the entered PAN
   const [kycChecking, setKycChecking] = useState(false);
   const [kycResult, setKycResult] = useState<{
+    serviceDown: boolean;
     kycStatus: 'S' | 'F' | null;
     kycStatusRemark?: string;
     kraName?: string;
@@ -387,7 +388,13 @@ export default function AddClientPage() {
                   Checking KYC status…
                 </p>
               )}
-              {!kycChecking && kycResult && (
+              {!kycChecking && kycResult && kycResult.serviceDown && (
+                <div className="mt-1.5 flex w-fit items-center gap-1.5 rounded-lg bg-yellow-50 px-2.5 py-1 text-xs font-medium text-yellow-700">
+                  <span>⚠</span>
+                  <span>KYC service unavailable — please proceed and verify manually</span>
+                </div>
+              )}
+              {!kycChecking && kycResult && !kycResult.serviceDown && (
                 <div className={`mt-1.5 flex w-fit items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium ${kycResult.isVerified ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
                   <span>{kycResult.isVerified ? '✓' : '✗'}</span>
                   <span>{kycResult.isVerified ? 'KYC Verified' : 'KYC Not Verified'}</span>
