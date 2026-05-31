@@ -266,11 +266,9 @@ class NseMfClient {
     return docNumber;
   }
 
-  /** Generate a unique NSE client code: MemberCode prefix + 8-char hex */
+  /** Generate a unique 6-digit NSE client code */
   generateClientCode(): string {
-    const prefix = this.memberId ? this.memberId.substring(0, 6).toUpperCase() : 'BSP';
-    const suffix = crypto.randomBytes(4).toString('hex').toUpperCase();
-    return `${prefix}${suffix}`;
+    return crypto.randomInt(100000, 1000000).toString();
   }
 
   // ─── Build registration payload (183-column v1.9.6) ──────────────────────
