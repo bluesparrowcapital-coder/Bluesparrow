@@ -7,9 +7,14 @@ const api = axios.create({
 });
 
 // ─── Request interceptor — attach access token ─────────────
+// Do NOT add Authorization to /auth/refresh — it causes an infinite 401 loop
+// when the access token is expired (the refresh call itself gets 401-retried).
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const isRefresh = config.url?.includes('/auth/refresh');
+  if (!isRefresh) {
+    const token = localStorage.getItem('accessToken');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 

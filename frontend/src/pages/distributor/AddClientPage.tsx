@@ -227,13 +227,22 @@ export default function AddClientPage() {
     }
     setKycChecking(true);
     setKycResult(null);
+
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      setKycChecking(false);
+      setKycResult({ serviceDown: true, kycStatus: null, isVerified: false, kycStatusRemark: 'TIMEOUT' });
+    }, 15000);
+
     try {
       const result = await distributorService.checkPanKyc(pan);
-      setKycResult(result);
+      if (!timedOut) setKycResult(result);
     } catch {
-      setKycResult(null);
+      if (!timedOut) setKycResult({ serviceDown: true, kycStatus: null, isVerified: false });
     } finally {
-      setKycChecking(false);
+      clearTimeout(timer);
+      if (!timedOut) setKycChecking(false);
     }
   }
 

@@ -268,7 +268,7 @@ export const distributorService = {
     kraName?: string;
     isVerified: boolean;
   }> => {
-    const { data } = await api.post('/distributor/kyc/check-pan', { pan_no: pan });
+    const { data } = await api.post('/distributor/kyc/check-pan', { pan_no: pan }, { timeout: 15000 });
     return { serviceDown: data.serviceDown ?? false, ...data.data };
   },
 };
